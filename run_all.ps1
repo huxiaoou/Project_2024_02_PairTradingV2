@@ -1,12 +1,12 @@
 $bgn_date_diff = "20160104"
 $bgn_date_fact = $bgn_date_diff
-$bgn_date_regp = "20160401"
+$bgn_date_regp = "20160201"
 $bgn_date_mclrn = "20160701"
 $bgn_date_simu = $bgn_date_regp
 $stp_date = "20240201"
 
-## diff return
-#python main.py diff     --mode o --bgn $bgn_date_diff --stp $stp_date
+# diff return
+python main.py diff     --mode o --bgn $bgn_date_diff --stp $stp_date
 
 # factor exposure
 python main.py exposure --mode o --bgn $bgn_date_fact --stp $stp_date --factor lag
@@ -25,13 +25,13 @@ python main.py exposure --mode o --bgn $bgn_date_fact --stp $stp_date --factor m
 python main.py exposure --mode o --bgn $bgn_date_fact --stp $stp_date --factor tsa
 python main.py exposure --mode o --bgn $bgn_date_fact --stp $stp_date --factor tsld
 
-## regroup
-#python main.py regroups --mode o --bgn $bgn_date_regp --stp $stp_date
-#
-## quick simulations
-#python main.py quick-simu --mode o --bgn $bgn_date_simu --stp $stp_date
+# regroup
+python main.py regroups --mode o --bgn $bgn_date_regp --stp $stp_date
 
-## machine learning
-#python main.py mclrn      --mode o --bgn $bgn_date_mclrn --stp $stp_date
-#python main.py simu-mclrn --mode o --bgn $bgn_date_mclrn --stp $stp_date
-#python main.py eval-mclrn          --bgn $bgn_date_mclrn --stp $stp_date
+# quick simulations
+python main.py quick-simu --mode o --bgn $bgn_date_simu --stp $stp_date
+
+# machine learning
+python main.py mclrn      --mode o --bgn $bgn_date_mclrn --stp $stp_date
+python main.py simu-mclrn --mode o --bgn $bgn_date_mclrn --stp $stp_date
+python main.py eval-mclrn          --bgn $bgn_date_mclrn --stp $stp_date

@@ -24,12 +24,12 @@ def parse_project_args():
     parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
     parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]")
 
-    # # regroup: diff ret and factor exposure
-    # parser_sub = parsers_sub.add_parser(name="regroups", help="Regroup factor exposure and diff return")
-    # parser_sub.add_argument("--mode", type=str, help="overwrite or append", choices=("o", "a"), required=True)
-    # parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
-    # parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
-    #
+    # regroup: diff ret and factor exposure
+    parser_sub = parsers_sub.add_parser(name="regroups", help="Regroup factor exposure and diff return")
+    parser_sub.add_argument("--mode", type=str, help="overwrite or append", choices=("o", "a"), required=True)
+    parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
+
     # # ic-tests time series
     # parser_sub = parsers_sub.add_parser(name="ic-tests", help="ic-tests")
     # parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
@@ -176,22 +176,22 @@ if __name__ == "__main__":
         else:
             print(f"... [ERR] factor = {args.factor}")
             raise ValueError
-    # elif args.switch == "regroups":
-    #     from husfort.qcalendar import CCalendar
-    #     from project_setup import (factors_exposure_dir, diff_returns_dir, regroups_dir, calendar_path)
-    #     from project_config import instruments_pairs, factors, diff_ret_delays
-    #     from regroups import cal_regroups_pairs
-    #
-    #     calendar = CCalendar(calendar_path)
-    #     cal_regroups_pairs(
-    #         instruments_pairs=instruments_pairs, diff_ret_delays=diff_ret_delays,
-    #         factors=factors,
-    #         run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp,
-    #         diff_returns_dir=diff_returns_dir,
-    #         factors_exposure_dir=factors_exposure_dir,
-    #         regroups_dir=regroups_dir,
-    #         calendar=calendar,
-    #     )
+    elif args.switch == "regroups":
+        from husfort.qcalendar import CCalendar
+        from project_setup import (factors_exposure_dir, diff_returns_dir, regroups_dir, calendar_path)
+        from project_config import instruments_pairs, factors, diff_ret_delays
+        from cRegroups import cal_regroups_pairs
+
+        calendar = CCalendar(calendar_path)
+        cal_regroups_pairs(
+            instruments_pairs=instruments_pairs, diff_ret_delays=diff_ret_delays,
+            factors=factors,
+            run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp,
+            diff_returns_dir=diff_returns_dir,
+            factors_exposure_dir=factors_exposure_dir,
+            regroups_dir=regroups_dir,
+            calendar=calendar,
+        )
     # elif args.switch == "ic-tests":
     #     from project_setup import regroups_dir, ic_tests_dir
     #     from project_config import instruments_pairs, factors, diff_ret_delays
