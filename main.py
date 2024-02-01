@@ -14,17 +14,16 @@ def parse_project_args():
     parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
     parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]")
 
-    # # factor exposure
-    # parser_sub = parsers_sub.add_parser(name="exposure", help="Calculate factor exposure")
-    # parser_sub.add_argument("--factor", type=str, help="which factor to calculate", choices=(
-    #     "lag", "ewm", "volatility", "tnr",
-    #     "basisa", "ctp", "cvp", "csp",
-    #     "rsbr", "rslr", "skew", "mtm", "mtms", "tsa", "tsld"
-    # ), required=True)
-    # parser_sub.add_argument("--mode", type=str, help="overwrite or append", choices=("o", "a"), required=True)
-    # parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
-    # parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]")
-    #
+    # factor exposure
+    parser_sub = parsers_sub.add_parser(name="exposure", help="Calculate factor exposure")
+    parser_sub.add_argument("--factor", type=str, help="which factor to calculate", choices=(
+        "lag", "sum", "ewm", "vol", "tnr",
+        "basisa", "ctp", "cvp", "csp", "rsbr", "rslr", "skew", "mtms", "tsa", "tsld"
+    ), required=True)
+    parser_sub.add_argument("--mode", type=str, help="overwrite or append", choices=("o", "a"), required=True)
+    parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]")
+
     # # regroup: diff ret and factor exposure
     # parser_sub = parsers_sub.add_parser(name="regroups", help="Regroup factor exposure and diff return")
     # parser_sub.add_argument("--mode", type=str, help="overwrite or append", choices=("o", "a"), required=True)
@@ -86,170 +85,97 @@ if __name__ == "__main__":
             run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp,
             diff_returns_dir=diff_returns_dir
         )
-    # elif args.switch == "exposure":
-    #     from husfort.qcalendar import CCalendar
-    #     from project_setup import (factors_exposure_dir, diff_returns_dir,
-    #                                instru_factor_exposure_dir, calendar_path)
-    #     from project_config import instruments_pairs, config_factor
-    #
-    #     calendar = CCalendar(calendar_path)
-    #     factor_args = config_factor[args.factor]["args"]
-    #     if args.factor == "lag":
-    #         from exposures import CFactorExposureLagRet
-    #
-    #         for lag in factor_args:
-    #             factor = CFactorExposureLagRet(
-    #                 lag=lag, diff_returns_dir=diff_returns_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "ewm":
-    #         from exposures import CFactorExposureEWM
-    #
-    #         fix_base_date = config_factor[args.factor]["fix_base_date"]
-    #         for (fast, slow) in factor_args:
-    #             factor = CFactorExposureEWM(
-    #                 fast=fast, slow=slow, diff_returns_dir=diff_returns_dir,
-    #                 fix_base_date=fix_base_date,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "volatility":
-    #         from exposures import CFactorExposureVolatility
-    #
-    #         for (win, k) in factor_args:
-    #             factor = CFactorExposureVolatility(
-    #                 win=win, k=k, diff_returns_dir=diff_returns_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "tnr":
-    #         from exposures import CFactorExposureTNR
-    #
-    #         for (win, k) in factor_args:
-    #             factor = CFactorExposureTNR(
-    #                 win=win, k=k, diff_returns_dir=diff_returns_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "basisa":
-    #         from exposures import CFactorExposureBasisa
-    #
-    #         for win in factor_args:
-    #             factor = CFactorExposureBasisa(
-    #                 win=win, instru_factor_exposure_dir=instru_factor_exposure_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #
-    #     elif args.factor == "ctp":
-    #         from exposures import CFactorExposureCTP
-    #
-    #         for win in factor_args:
-    #             factor = CFactorExposureCTP(
-    #                 win=win, instru_factor_exposure_dir=instru_factor_exposure_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "cvp":
-    #         from exposures import CFactorExposureCVP
-    #
-    #         for win in factor_args:
-    #             factor = CFactorExposureCVP(
-    #                 win=win, instru_factor_exposure_dir=instru_factor_exposure_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "csp":
-    #         from exposures import CFactorExposureCSP
-    #
-    #         for win in factor_args:
-    #             factor = CFactorExposureCSP(
-    #                 win=win, instru_factor_exposure_dir=instru_factor_exposure_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "rsbr":
-    #         from exposures import CFactorExposureRSBR
-    #
-    #         for win in factor_args:
-    #             factor = CFactorExposureRSBR(
-    #                 win=win, instru_factor_exposure_dir=instru_factor_exposure_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "rslr":
-    #         from exposures import CFactorExposureRSLR
-    #
-    #         for win in factor_args:
-    #             factor = CFactorExposureRSLR(
-    #                 win=win, instru_factor_exposure_dir=instru_factor_exposure_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "skew":
-    #         from exposures import CFactorExposureSKEW
-    #
-    #         for win in factor_args:
-    #             factor = CFactorExposureSKEW(
-    #                 win=win, instru_factor_exposure_dir=instru_factor_exposure_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "mtm":
-    #         from exposures import CFactorExposureMTM
-    #
-    #         for win in factor_args:
-    #             factor = CFactorExposureMTM(
-    #                 win=win, instru_factor_exposure_dir=instru_factor_exposure_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "mtms":
-    #         from exposures import CFactorExposureMTMS
-    #
-    #         for win in factor_args:
-    #             factor = CFactorExposureMTMS(
-    #                 win=win, instru_factor_exposure_dir=instru_factor_exposure_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "tsa":
-    #         from exposures import CFactorExposureTSA
-    #
-    #         for win in factor_args:
-    #             factor = CFactorExposureTSA(
-    #                 win=win, instru_factor_exposure_dir=instru_factor_exposure_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     elif args.factor == "tsld":
-    #         from exposures import CFactorExposureTSLD
-    #
-    #         for win in factor_args:
-    #             factor = CFactorExposureTSLD(
-    #                 win=win, instru_factor_exposure_dir=instru_factor_exposure_dir,
-    #                 factors_exposure_dir=factors_exposure_dir,
-    #                 instruments_pairs=instruments_pairs,
-    #             )
-    #             factor.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
-    #     else:
-    #         print(f"... [ERR] factor = {args.factor}")
-    #         raise ValueError
+    elif args.switch == "exposure":
+        from husfort.qcalendar import CCalendar
+        from project_setup import (factors_exposure_dir, diff_returns_dir, instru_factor_exposure_dir, calendar_path)
+        from project_config import instruments_pairs, config_factor, CCfgFactorMA, CCfgFactorEWM, CCfgFactor
+
+        calendar = CCalendar(calendar_path)
+        factor_cfgs = config_factor[args.factor]
+        if args.factor == "lag":
+            from cExposures import CFactorExposureLag
+
+            if isinstance(factor_cfgs, CCfgFactor):
+                for lag, factor in zip(factor_cfgs.args, factor_cfgs.get_factors()):
+                    factor_exposure = CFactorExposureLag(
+                        lag=lag, factor=factor, diff_returns_dir=diff_returns_dir,
+                        factors_exposure_dir=factors_exposure_dir,
+                        instruments_pairs=instruments_pairs,
+                    )
+                    factor_exposure.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
+            else:
+                raise TypeError
+        elif args.factor == "sum":
+            from cExposures import CFactorExposureSUM
+
+            if isinstance(factor_cfgs, CCfgFactor):
+                for win, factor in zip(factor_cfgs.args, factor_cfgs.get_factors()):
+                    factor_exposure = CFactorExposureSUM(
+                        win=win, factor=factor, diff_returns_dir=diff_returns_dir,
+                        factors_exposure_dir=factors_exposure_dir,
+                        instruments_pairs=instruments_pairs,
+                    )
+                    factor_exposure.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
+            else:
+                raise TypeError
+        elif args.factor == "ewm":
+            from cExposures import CFactorExposureEWM
+
+            if isinstance(factor_cfgs, CCfgFactorEWM):
+                for (fast, slow), factor in zip(factor_cfgs.args, factor_cfgs.get_factors()):
+                    factor_exposure = CFactorExposureEWM(
+                        fast=fast, slow=slow, fix_base_date=factor_cfgs.fixed_bgn_date,
+                        factor=factor, diff_returns_dir=diff_returns_dir,
+                        factors_exposure_dir=factors_exposure_dir,
+                        instruments_pairs=instruments_pairs,
+                    )
+                    factor_exposure.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
+            else:
+                raise TypeError
+        elif args.factor == "vol":
+            from cExposures import CFactorExposureVOL
+
+            if isinstance(factor_cfgs, CCfgFactor):
+                for win, factor in zip(factor_cfgs.args, factor_cfgs.get_factors()):
+                    factor_exposure = CFactorExposureVOL(
+                        win=win, factor=factor, diff_returns_dir=diff_returns_dir,
+                        factors_exposure_dir=factors_exposure_dir,
+                        instruments_pairs=instruments_pairs,
+                    )
+                    factor_exposure.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
+            else:
+                raise TypeError
+        elif args.factor == "tnr":
+            from cExposures import CFactorExposureTNR
+
+            if isinstance(factor_cfgs, CCfgFactor):
+                for win, factor in zip(factor_cfgs.args, factor_cfgs.get_factors()):
+                    factor_exposure = CFactorExposureTNR(
+                        win=win, factor=factor, diff_returns_dir=diff_returns_dir,
+                        factors_exposure_dir=factors_exposure_dir,
+                        instruments_pairs=instruments_pairs,
+                    )
+                    factor_exposure.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
+            else:
+                raise TypeError
+        elif args.factor in ["basisa", "ctp", "cvp", "csp", "rsbr", "rslr", "skew", "mtms", "tsa", "tsld"]:
+            from cExposures import CFactorExposureFromInstruExposureDiff
+
+            if isinstance(factor_cfgs, CCfgFactorMA):
+                for factor_exo, factor in zip(factor_cfgs.get_factors_raw(), factor_cfgs.get_factors()):
+                    factor_exposure = CFactorExposureFromInstruExposureDiff(
+                        factor_exo=factor_exo, win_mov_ave=factor_cfgs.win_mov_ave,
+                        instru_factor_exposure_dir=instru_factor_exposure_dir,
+                        factor=factor, factors_exposure_dir=factors_exposure_dir,
+                        instruments_pairs=instruments_pairs,
+                    )
+                    factor_exposure.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
+            else:
+                raise TypeError
+
+        else:
+            print(f"... [ERR] factor = {args.factor}")
+            raise ValueError
     # elif args.switch == "regroups":
     #     from husfort.qcalendar import CCalendar
     #     from project_setup import (factors_exposure_dir, diff_returns_dir, regroups_dir, calendar_path)
