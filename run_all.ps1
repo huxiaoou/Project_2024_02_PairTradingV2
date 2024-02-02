@@ -29,7 +29,7 @@ python main.py exposure --mode o --bgn $bgn_date_fact --stp $stp_date --factor t
 python main.py regroups --mode o --bgn $bgn_date_regp --stp $stp_date
 
 # quick simulations
-python main.py quick-simu --mode o --bgn $bgn_date_simu --stp $stp_date
+python main.py simu-quick --mode o --bgn $bgn_date_simu --stp $stp_date
 
 # machine learning
 python main.py mclrn      --mode o --bgn $bgn_date_mclrn --stp $stp_date
