@@ -37,15 +37,16 @@ def parse_project_args():
     parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
     parser_sub.add_argument("--process", type=int, default=None, help="number of process")
 
-    # # evaluation quick
-    # parser_sub = parsers_sub.add_parser(name="eval-quick", help="Quick evaluation for given factor and pairs")
-    # parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
-    # parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
-    #
-    # # ------------------------
-    # # --- machine learning ---
-    # # ------------------------
-    #
+    # evaluation quick
+    parser_sub = parsers_sub.add_parser(name="eval-quick", help="Quick evaluation for given factor and pairs")
+    parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--top", type=int, help="factors with top n and bottom sharpe will be plot", default=5)
+
+    # ------------------------
+    # --- machine learning ---
+    # ------------------------
+
     # # train and predict
     # parser_sub = parsers_sub.add_parser(name="mclrn", help="machine learning")
     # parser_sub.add_argument("--mode", type=str, help="overwrite or append", choices=("o", "a"), required=True)
@@ -198,23 +199,25 @@ if __name__ == "__main__":
             run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, factors=factors,
             cost_rate=cost_rate, regroups_dir=regroups_dir, simulations_dir=simulations_dir_quick
         )
-    # elif args.switch == "eval-quick":
-    #     from project_setup import simulations_dir_quick, evaluations_dir_quick
-    #     from project_config import instruments_pairs, factors, diff_ret_delays
-    #     from evaluations import cal_evaluations_quick, plot_factors_simu_quick
-    #
-    #     cal_evaluations_quick(
-    #         instruments_pairs=instruments_pairs, diff_ret_delays=diff_ret_delays, factors=factors,
-    #         bgn_date=args.bgn, stp_date=args.stp,
-    #         evaluations_dir=evaluations_dir_quick,
-    #         simulations_dir=simulations_dir_quick
-    #     )
-    #     plot_factors_simu_quick(
-    #         factors=factors, diff_ret_delays=diff_ret_delays, instruments_pairs=instruments_pairs,
-    #         bgn_date=args.bgn, stp_date=args.stp,
-    #         plot_save_dir=evaluations_dir_quick,
-    #         simulations_dir=simulations_dir_quick
-    #     )
+    elif args.switch == "eval-quick":
+        from project_setup import simulations_dir_quick, evaluations_dir_quick
+        from project_config import instruments_pairs, factors, diff_ret_delays
+        from cEvaluations import cal_evaluations_quick, get_top_factors_for_instruments_pairs, plot_instru_simu_quick
+
+        cal_evaluations_quick(
+            instruments_pairs=instruments_pairs, diff_ret_delays=diff_ret_delays, factors=factors,
+            bgn_date=args.bgn, stp_date=args.stp,
+            evaluations_dir=evaluations_dir_quick,
+            simulations_dir=simulations_dir_quick
+        )
+        top_factors = get_top_factors_for_instruments_pairs(top=args.top, evaluations_dir=evaluations_dir_quick)
+        plot_instru_simu_quick(
+            instruments_pairs=instruments_pairs, diff_ret_delays=diff_ret_delays,
+            top_factors=top_factors,
+            bgn_date=args.bgn, stp_date=args.stp,
+            plot_save_dir=evaluations_dir_quick,
+            simulations_dir=simulations_dir_quick
+        )
     # elif args.switch == "mclrn":
     #     from project_setup import models_dir, predictions_dir, regroups_dir, calendar_path
     #     from project_config_mclrn import models_mclrn

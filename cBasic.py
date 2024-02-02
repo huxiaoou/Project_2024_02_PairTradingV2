@@ -1,6 +1,10 @@
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
 class CInstruPair(object):
-    def __init__(self, instru_a: str, instru_b: str):
-        self.instru_a, self.instru_b = instru_a, instru_b
+    instru_a: str
+    instru_b: str
 
     @property
     def Id(self) -> str:
@@ -8,6 +12,9 @@ class CInstruPair(object):
 
     def get_instruments(self) -> list[str]:
         return [self.instru_a, self.instru_b]
+
+    def __repr__(self):
+        return f"{self.Id!r}"
 
 
 class CCfgFactor(object):

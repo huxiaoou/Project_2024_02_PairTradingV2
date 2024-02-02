@@ -33,7 +33,7 @@ class CLibSimu(CQuickSqliteLib):
                         "dltWgt": "REAL",
                         "cost": "REAL",
                         "netRet": "REAL",
-                        "cumNetRet": "REAL",
+                        "nav": "REAL",
                     },
                 }
             )
@@ -61,11 +61,11 @@ class CSimuQuick(object):
         self.df["dltWgt"] = self.df[self.sig] - self.df[self.sig].shift(1).fillna(0)
         self.df["cost"] = self.df["dltWgt"].abs() * self.cost_rate
         self.df["netRet"] = self.df["rawRet"] - self.df["cost"]
-        self.df["cumNetRet"] = self.df["netRet"].cumsum()
+        self.df["nav"] = (self.df["netRet"] + 1).cumprod()
         return 0
 
     def __save(self, run_mode: str, simulations_dir: str):
-        update_df = self.df[["rawRet", "dltWgt", "cost", "netRet", "cumNetRet"]]
+        update_df = self.df[["rawRet", "dltWgt", "cost", "netRet", "nav"]]
         lib_simu_writer = CLibSimu(simu_id=self.simu_id, lib_save_dir=simulations_dir).get_lib_writer(run_mode)
         lib_simu_writer.update(update_df=update_df, using_index=True)
         lib_simu_writer.commit()
@@ -97,7 +97,8 @@ def cal_simulations(instru_pair: CInstruPair, delay: int,
 
 
 @qtimer
-def cal_simulations_instruments_pairs(instruments_pairs: list[CInstruPair], diff_ret_delays: list[int], proc_qty: int = None,
+def cal_simulations_instruments_pairs(instruments_pairs: list[CInstruPair], diff_ret_delays: list[int],
+                                      proc_qty: int = None,
                                       **kwargs):
     pool = mp.Pool(processes=proc_qty) if proc_qty else mp.Pool()
     for (instru_pair, delay) in product(instruments_pairs, diff_ret_delays):
