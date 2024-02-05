@@ -1,8 +1,8 @@
 import os
 import datetime as dt
 import pandas as pd
-import tqdm
-from tqdm.contrib.itertools import product
+from itertools import product as ittl_prod
+from rich.progress import track
 from husfort.qutility import SFG
 from husfort.qevaluation import CNAV
 from husfort.qplot import CPlotLines
@@ -25,8 +25,8 @@ def cal_evaluations(simu_id: str, bgn_date: str, stp_date: str, simulations_dir:
 def cal_evaluations_quick(instruments_pairs: list[CInstruPair], diff_ret_delays: list[int], factors: list[str],
                           evaluations_dir: str, **kwargs):
     eval_results = []
-    for (instru_pair, delay, factor) in product(instruments_pairs, diff_ret_delays, factors,
-                                                desc="Evaluation", colour="#006400", ascii=" o-"):
+    for (instru_pair, delay, factor) in track(list(ittl_prod(instruments_pairs, diff_ret_delays, factors)),
+                                              description="Evaluation"):
         simu_id = f"{instru_pair.Id}.{factor}.T{delay}"
         d = cal_evaluations(simu_id=simu_id, **kwargs)
         d.update({
@@ -81,8 +81,8 @@ def __plot_instru_simu_quick(instru_pair: CInstruPair, delay: int, factors: list
 def plot_instru_simu_quick(instruments_pairs: list[CInstruPair], diff_ret_delays: list[int],
                            top_factors: dict[tuple[CInstruPair, int], list[str]],
                            **kwargs):
-    for (instru_pair, delay) in product(instruments_pairs, diff_ret_delays,
-                                        colour="green", ascii=" o-", desc="Plot top factors"):
+    for (instru_pair, delay) in track(list(ittl_prod(instruments_pairs, diff_ret_delays)),
+                                      description="Plot top factors"):
         factors = top_factors[(instru_pair, delay)]
         __plot_instru_simu_quick(instru_pair, delay, factors=factors, **kwargs)
     return 0

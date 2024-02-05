@@ -1,4 +1,4 @@
-from tqdm import tqdm
+from rich.progress import track
 import datetime as dt
 import multiprocessing as mp
 import numpy as np
@@ -87,7 +87,7 @@ def cal_simulations(instru_pair: CInstruPair, delay: int,
         ("trade_date", "<", stp_date),
     ], value_columns=["trade_date", "factor", "value"])
     pivot_df = pd.pivot_table(data=df, index="trade_date", columns="factor", values="value")
-    for factor in tqdm(factors, desc=f"{instru_pair.Id:>16s}", colour="#006400", ascii=" o-"):
+    for factor in track(factors, description=f"{instru_pair.Id:>16s}"):
         simu_df = pivot_df[[factor, "diff_return"]].copy()
         simu_df["signal"] = np.sign(pivot_df[factor])
         simu_id = f"{instru_pair.Id}.{factor}.T{delay}"
