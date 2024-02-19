@@ -5,6 +5,8 @@ import scipy.stats as sps
 import skops.io as sio
 import pandas as pd
 import multiprocessing as mp
+import itertools as ittl
+from rich.progress import track
 from sklearn.linear_model import RidgeCV
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.neural_network import MLPClassifier
@@ -65,7 +67,8 @@ class CMclrnModel(object):
 
         # ---
         self.core_data: pd.DataFrame = pd.DataFrame()
-        self.model_obj = None
+        self.prototype_model = None
+        self.fitted_estimator = None
 
     @staticmethod
     def get_iter_dates(bgn_date: str, stp_date: str,
@@ -142,11 +145,12 @@ class CMclrnModel(object):
         return x.values, y.values
 
     def _fit(self, x: np.ndarray, y: np.ndarray):
-        pass
+        self.fitted_estimator = self.prototype_model.fit(x, y)
+        return 0
 
     def _apply_model(self, predict_df: pd.DataFrame) -> pd.DataFrame:
         x = self._normalize(predict_df[self.factors])
-        p = self.model_obj.predict(X=x.values)
+        p = self.fitted_estimator.predict(X=x.values)
         pred = pd.DataFrame(data={"pred": p}, index=predict_df.index)
         return pred
 
@@ -155,7 +159,7 @@ class CMclrnModel(object):
         month_dir = os.path.join(models_dir, month_id)
         model_path = os.path.join(month_dir, model_file)
         check_and_mkdir(month_dir)
-        sio.dump(self.model_obj, model_path)
+        sio.dump(self.fitted_estimator, model_path)
         return 0
 
     def _load_model(self, month_id: str, models_dir: str) -> bool:
@@ -163,10 +167,10 @@ class CMclrnModel(object):
         month_dir = os.path.join(models_dir, month_id)
         model_path = os.path.join(month_dir, model_file)
         if os.path.exists(model_path):
-            self.model_obj = sio.load(model_path, trusted=True)
+            self.fitted_estimator = sio.load(model_path, trusted=True)
             return True
         else:
-            print(f"{dt.datetime.now()} [WRN] failed to load model for {SFY(self.model_id)} at {SFY(month_id)}")
+            # print(f"{dt.datetime.now()} [WRN] failed to load model for {SFY(self.model_id)} at {SFY(month_id)}")
             return False
 
     def load_data(self, bgn_date: str, stp_date: str, regroups_dir: str):
@@ -181,20 +185,21 @@ class CMclrnModel(object):
 
     def train(self, bgn_date: str, stp_date: str, calendar: CCalendar, models_dir: str):
         iter_dates, (next_dates,) = self.get_iter_dates(bgn_date, stp_date, calendar, shifts=[1])
-        for (this_date, next_date) in zip(iter_dates, next_dates):
+        seq, description = list(zip(iter_dates, next_dates)), f"{SFY('Training  ')} for {self.model_id}"
+        for (this_date, next_date) in track(seq, description=description):
             if self.is_model_update_date(this_date, next_date):
                 train_df = self._get_train_df(end_date=this_date)
                 x, y = self._norm_and_trans(train_df)
                 self._fit(x, y)
                 self._save_model(month_id=this_date[0:6], models_dir=models_dir)
-                print(f"{dt.datetime.now()} [INF] {SFG(self.model_id)} for {SFG(this_date[0:6])} trained", end="\r")
         return 0
 
     def predict(self, bgn_date, stp_date, calendar: CCalendar, models_dir: str) -> pd.DataFrame:
         iter_dates, (next_dates_1, next_dates_2) = self.get_iter_dates(bgn_date, stp_date, calendar, shifts=[1, 2])
         month_dates: list[str] = []
         sub_predictions: list[pd.DataFrame] = []
-        for (this_date, next_date_1, next_date_2) in zip(iter_dates, next_dates_1, next_dates_2):
+        seq, description = list(zip(iter_dates, next_dates_1, next_dates_2)), f"{SFG('Prediction')} for {self.model_id}"
+        for (this_date, next_date_1, next_date_2) in track(seq, description):
             month_dates.append(this_date)
             if (self.is_2_days_to_next_month(this_date, next_date_1, next_date_2)
                     or self.is_last_iter_date(this_date, iter_dates)):
@@ -204,11 +209,6 @@ class CMclrnModel(object):
                     pred_bgn_date, pred_end_date = month_dates[0], this_date
                     predict_input_df = self._get_predict_df(bgn_date=pred_bgn_date, end_date=pred_end_date)
                     sub_predictions.append(self._apply_model(predict_input_df))
-                    print(f"{dt.datetime.now()} [INF] model-month-id = {SFG(prev_month)}"
-                          f" predict month = {SFG(this_month)}: {SFG(pred_bgn_date)} -> {SFG(pred_end_date)}",
-                          end="\r")
-                    print(f"{dt.datetime.now()} [INF] {SFG(self.model_id)} for {SFG(this_date[0:6])} predicted",
-                          end="\r")
                 month_dates.clear()  # prepare for next month
         predictions = pd.concat(sub_predictions, axis=0, ignore_index=False).reset_index()
         return predictions
@@ -230,71 +230,52 @@ class CMclrnModel(object):
 
 
 class CMclrnRidge(CMclrnModel):
-    def __init__(self, alphas: list[float], fit_intercept: bool = True, **kwargs):
+    def __init__(self, alphas: tuple, fit_intercept: bool = False, **kwargs):
+        super().__init__(**kwargs)
         self.alphas = alphas
         self.fit_intercept = fit_intercept
-        super().__init__(**kwargs)
-
-    def _fit(self, x: np.ndarray, y: np.ndarray):
-        obj_cv = RidgeCV(alphas=self.alphas, fit_intercept=self.fit_intercept)
-        self.model_obj = obj_cv.fit(X=x, y=y)
-        return 0
+        self.prototype_model = RidgeCV(alphas=self.alphas, fit_intercept=self.fit_intercept)
 
 
 class CMclrnLogistic(CMclrnModel):
-    def __init__(self, cs: int, cv: int,
-                 fit_intercept: bool = True, penalty: str = "l2",
+    def __init__(self, cv: int,
+                 cs: int = 10, fit_intercept: bool = False, penalty: str = "l2",
                  max_iter: int = 5000, **kwargs):
-        self.cs = cs
+        super().__init__(**kwargs)
         self.cv = cv
+        self.cs = cs
         self.fit_intercept = fit_intercept
         self.penalty = penalty
         self.max_iter = max_iter
-        super().__init__(**kwargs)
-
-    def _fit(self, x: np.ndarray, y: np.ndarray):
-        obj_cv = LogisticRegressionCV(
-            cv=self.cv, Cs=self.cs,
+        self.prototype_model = LogisticRegressionCV(
+            Cs=self.cs, cv=self.cv,
             fit_intercept=self.fit_intercept, penalty=self.penalty,
             max_iter=self.max_iter, random_state=self.random_state)
-        self.model_obj = obj_cv.fit(X=x, y=y)
-        return 0
 
 
 class CMclrnMlp(CMclrnModel):
     def __init__(self, hidden_layer_size: tuple[int], max_iter: int = 5000, **kwargs):
         self.hidden_layer_size = hidden_layer_size
         self.max_iter = max_iter
+        self.prototype_model = MLPClassifier(
+            hidden_layer_sizes=self.hidden_layer_size,
+            max_iter=self.max_iter, random_state=self.random_state)
         super().__init__(**kwargs)
-
-    def _fit(self, x: np.ndarray, y: np.ndarray):
-        obj_cv = MLPClassifier(hidden_layer_sizes=self.hidden_layer_size,
-                               max_iter=self.max_iter, random_state=self.random_state)
-        self.model_obj = obj_cv.fit(X=x, y=y)
-        return 0
 
 
 class CMclrnSvc(CMclrnModel):
     def __init__(self, c: float, degree: int, **kwargs):
         self.c = c
         self.degree = degree
+        self.prototype_model = SVC(C=self.c, degree=self.degree, random_state=self.random_state)
         super().__init__(**kwargs)
-
-    def _fit(self, x: np.ndarray, y: np.ndarray):
-        obj_cv = SVC(C=self.c, degree=self.degree, random_state=self.random_state)
-        self.model_obj = obj_cv.fit(X=x, y=y)
-        return 0
 
 
 class CMclrnDt(CMclrnModel):
     def __init__(self, max_depth: int, **kwargs):
         self.max_depth = max_depth
+        self.prototype_model = DecisionTreeClassifier(max_depth=self.max_depth, random_state=self.random_state)
         super().__init__(**kwargs)
-
-    def _fit(self, x: np.ndarray, y: np.ndarray):
-        obj_cv = DecisionTreeClassifier(max_depth=self.max_depth, random_state=self.random_state)
-        self.model_obj = obj_cv.fit(X=x, y=y)
-        return 0
 
 
 class CMclrnKn(CMclrnModel):
@@ -302,40 +283,28 @@ class CMclrnKn(CMclrnModel):
         self.n_neighbors = n_neighbors
         self.weights = weights
         self.p = p
+        self.prototype_model = KNeighborsClassifier(n_neighbors=self.n_neighbors, weights=self.weights, p=self.p)
         super().__init__(**kwargs)
-
-    def _fit(self, x: np.ndarray, y: np.ndarray):
-        obj_cv = KNeighborsClassifier(n_neighbors=self.n_neighbors, weights=self.weights, p=self.p)
-        self.model_obj = obj_cv.fit(X=x, y=y)
-        return 0
 
 
 class CMclrnAdaboost(CMclrnModel):
     def __init__(self, n_estimators: int, learning_rate: float, **kwargs):
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
-        super().__init__(**kwargs)
-
-    def _fit(self, x: np.ndarray, y: np.ndarray):
-        obj_cv = AdaBoostClassifier(
+        self.prototype_model = AdaBoostClassifier(
             n_estimators=self.n_estimators, learning_rate=self.learning_rate,
             random_state=self.random_state)
-        self.model_obj = obj_cv.fit(X=x, y=y)
-        return 0
+        super().__init__(**kwargs)
 
 
 class CMclrnGb(CMclrnModel):
     def __init__(self, n_estimators: int, learning_rate: float, **kwargs):
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
-        super().__init__(**kwargs)
-
-    def _fit(self, x: np.ndarray, y: np.ndarray):
-        obj_cv = GradientBoostingClassifier(
+        self.prototype_model = GradientBoostingClassifier(
             n_estimators=self.n_estimators, learning_rate=self.learning_rate,
             random_state=self.random_state)
-        self.model_obj = obj_cv.fit(X=x, y=y)
-        return 0
+        super().__init__(**kwargs)
 
 
 def cal_mclrn_train_and_predict(models_mclrn: list[CMclrnModel], proc_qty: int = None, **kwargs):
@@ -345,3 +314,77 @@ def cal_mclrn_train_and_predict(models_mclrn: list[CMclrnModel], proc_qty: int =
     pool.close()
     pool.join()
     return 0
+
+
+class CMclrnBatch(object):
+    def __init__(self, instruments_pairs: list[CInstruPair], delays: list[int], trn_wins: list[int],
+                 all_factors: list[str],
+                 top_factors: dict[tuple[CInstruPair, int], list[str]]):
+        self.instruments_pairs = instruments_pairs
+        self.delays = delays
+        self.trn_wins = trn_wins
+        self.all_factors = all_factors
+        self.top_factors = top_factors
+
+    def append_batch(self, models_mclrn: list[CMclrnModel]):
+        for instru_pair, delay, trn_win in ittl.product(self.instruments_pairs, self.delays, self.trn_wins):
+            sel_factors = self.top_factors[(instru_pair, delay)]
+            for factors in [self.all_factors, sel_factors]:
+                self.core(models_mclrn=models_mclrn,
+                          instru_pair=instru_pair, delay=delay, factors=factors, trn_win=trn_win)
+        return 0
+
+    def core(self, models_mclrn: list[CMclrnModel],
+             instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]):
+        pass
+
+    @staticmethod
+    def get_fix_id(instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> str:
+        return f"P-{instru_pair}-T{delay}-F{len(factors):02d}-W{trn_win}"
+
+    @staticmethod
+    def get_model_id(sn: int) -> str:
+        return f"M{sn:04d}"
+
+
+class CMclrnBatchRidge(CMclrnBatch):
+    def __init__(self, ridge_alphas: list[tuple], **kwargs):
+        self.ridge_alphas = ridge_alphas
+        super().__init__(**kwargs)
+
+    def core(self, models_mclrn: list[CMclrnModel],
+             instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]):
+        model_sn: int = len(models_mclrn)
+        for alphas in self.ridge_alphas:
+            model_id = self.get_model_id(sn=model_sn)
+            desc = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Ridge-A{len(alphas)}"
+            m = CMclrnRidge(
+                alphas=alphas, model_id=model_id, desc=desc,
+                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
+                sig_method="continuous", trn_win=trn_win,
+            )
+            models_mclrn.append(m)
+            model_sn += 1
+        return 0
+
+
+class CMclrnBatchLogistic(CMclrnBatch):
+    def __init__(self, cvs: list[int], **kwargs):
+        self.cvs = cvs
+        super().__init__(**kwargs)
+
+    def core(self, models_mclrn: list[CMclrnModel],
+             instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]):
+        model_sn: int = len(models_mclrn)
+        for cv in self.cvs:
+            model_id = self.get_model_id(sn=model_sn)
+            desc = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Logistic-CV{cv:02d}"
+            m = CMclrnLogistic(
+                cv=cv,
+                model_id=model_id, desc=desc,
+                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
+                sig_method="binary", trn_win=trn_win,
+            )
+            models_mclrn.append(m)
+            model_sn += 1
+        return 0
