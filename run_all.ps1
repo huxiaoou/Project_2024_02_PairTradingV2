@@ -3,7 +3,7 @@ $bgn_date_fact = $bgn_date_diff
 $bgn_date_regp = "20160201"
 $bgn_date_mclrn = "20160701"
 $bgn_date_simu = $bgn_date_regp
-$stp_date = "20240201"
+$stp_date = "20240219"
 
 # diff return
 python main.py diff     --mode o --bgn $bgn_date_diff --stp $stp_date
@@ -30,7 +30,7 @@ python main.py regroups --mode o --bgn $bgn_date_regp --stp $stp_date
 
 # quick simulations and evaluations
 python main.py simu-quick --mode o --bgn $bgn_date_simu --stp $stp_date
-python main.py eval-quick --mode o --bgn $bgn_date_simu --stp $stp_date
+python main.py eval-quick          --bgn $bgn_date_simu --stp $stp_date
 
 # machine learning
 python main.py mclrn      --mode o --bgn $bgn_date_mclrn --stp $stp_date
