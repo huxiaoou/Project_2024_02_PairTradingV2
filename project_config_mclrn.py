@@ -9,22 +9,23 @@ delays = [2]
 trn_wins = [3, 6, 12]
 top = 5
 ridge_alphas = [(0.01, 0.1, 1.0, 10.0, 100)]
-logistic_cvs = [3, 5, 10]
+logistic_cs = [7]
 models_mclrn: list[CMclrnModel] = []
 
 # --- load top factors
 top_factors = get_top_factors_for_instruments_pairs(top=top, evaluations_dir=evaluations_dir_quick)
 
 # --- add Ridge
-batch_generator = CMclrnBatchRidge(ridge_alphas=ridge_alphas,
-                                   instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins,
-                                   all_factors=factors, top_factors=top_factors)
+batch_generator = CMclrnBatchRidge(
+    ridge_alphas=ridge_alphas,
+    instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins, all_factors=factors, top_factors=top_factors)
 batch_generator.append_batch(models_mclrn=models_mclrn)
 
 # --- add Logistic
-batch_generator = CMclrnBatchLogistic(cvs=logistic_cvs,
-                                      instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins,
-                                      all_factors=factors, top_factors=top_factors)
+batch_generator = CMclrnBatchLogistic(
+    logistic_cs=logistic_cs,
+    instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins, all_factors=factors, top_factors=top_factors)
+# instruments_pairs=[CInstruPair("A.DCE", "Y.DCE")], delays=delays, trn_wins=[12], all_factors=factors, top_factors=top_factors)
 batch_generator.append_batch(models_mclrn=models_mclrn)
 
 # models_mclrn: list[CMclrnModel] = [

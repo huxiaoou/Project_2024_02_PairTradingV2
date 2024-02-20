@@ -7,6 +7,7 @@ import pandas as pd
 import multiprocessing as mp
 import itertools as ittl
 from rich.progress import track
+from sklearn.model_selection import LeaveOneOut
 from sklearn.linear_model import RidgeCV
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.neural_network import MLPClassifier
@@ -45,13 +46,15 @@ class CMclrnModel(object):
     def __init__(self, model_id: str, desc: str,
                  instru_pair: CInstruPair, delay: int, factors: list[str], y_lbl: str,
                  sig_method: str,
-                 trn_win: int, days_per_month: int = 20, normalize_alpha: float = 0.05, random_state: int = 0):
+                 trn_win: int, days_per_month: int = 20, normalize_alpha: float = 0.05,
+                 random_state: int = 0, max_iter: int = 5000):
         self.model_id, self.desc = model_id, desc
         self.instru_pair = instru_pair
         self.delay = delay
         self.factors, self.y_lbl = factors, y_lbl
         self.train_win, self.days_per_month = trn_win, days_per_month
         self.random_state = random_state
+        self.max_iter = max_iter
 
         # ---
         if sig_method not in ["binary", "continuous"]:
@@ -236,77 +239,71 @@ class CMclrnRidge(CMclrnModel):
         super().__init__(**kwargs)
         self.alphas = alphas
         self.fit_intercept = fit_intercept
-        self.prototype_model = RidgeCV(alphas=self.alphas, fit_intercept=self.fit_intercept)
+        self.prototype_model = RidgeCV(alphas=self.alphas, fit_intercept=self.fit_intercept, cv=LeaveOneOut())
 
 
 class CMclrnLogistic(CMclrnModel):
-    def __init__(self, cv: int,
-                 cs: int = 10, fit_intercept: bool = False, penalty: str = "l2",
-                 max_iter: int = 5000, **kwargs):
+    def __init__(self, cs: int, fit_intercept: bool = False, **kwargs):
         super().__init__(**kwargs)
-        self.cv = cv
-        self.cs = cs
+        self.Cs = cs
         self.fit_intercept = fit_intercept
-        self.penalty = penalty
-        self.max_iter = max_iter
         self.prototype_model = LogisticRegressionCV(
-            Cs=self.cs, cv=self.cv,
-            fit_intercept=self.fit_intercept, penalty=self.penalty,
+            Cs=self.Cs, cv=LeaveOneOut(),
+            fit_intercept=self.fit_intercept,
             max_iter=self.max_iter, random_state=self.random_state)
 
 
 class CMclrnMlp(CMclrnModel):
-    def __init__(self, hidden_layer_size: tuple[int], max_iter: int = 5000, **kwargs):
+    def __init__(self, hidden_layer_size: tuple[int], **kwargs):
+        super().__init__(**kwargs)
         self.hidden_layer_size = hidden_layer_size
-        self.max_iter = max_iter
         self.prototype_model = MLPClassifier(
             hidden_layer_sizes=self.hidden_layer_size,
             max_iter=self.max_iter, random_state=self.random_state)
-        super().__init__(**kwargs)
 
 
 class CMclrnSvc(CMclrnModel):
     def __init__(self, c: float, degree: int, **kwargs):
+        super().__init__(**kwargs)
         self.c = c
         self.degree = degree
         self.prototype_model = SVC(C=self.c, degree=self.degree, random_state=self.random_state)
-        super().__init__(**kwargs)
 
 
 class CMclrnDt(CMclrnModel):
     def __init__(self, max_depth: int, **kwargs):
+        super().__init__(**kwargs)
         self.max_depth = max_depth
         self.prototype_model = DecisionTreeClassifier(max_depth=self.max_depth, random_state=self.random_state)
-        super().__init__(**kwargs)
 
 
 class CMclrnKn(CMclrnModel):
     def __init__(self, n_neighbors: int, weights: str = "distance", p: int = 1, **kwargs):
+        super().__init__(**kwargs)
         self.n_neighbors = n_neighbors
         self.weights = weights
         self.p = p
         self.prototype_model = KNeighborsClassifier(n_neighbors=self.n_neighbors, weights=self.weights, p=self.p)
-        super().__init__(**kwargs)
 
 
 class CMclrnAdaboost(CMclrnModel):
     def __init__(self, n_estimators: int, learning_rate: float, **kwargs):
+        super().__init__(**kwargs)
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
         self.prototype_model = AdaBoostClassifier(
             n_estimators=self.n_estimators, learning_rate=self.learning_rate,
             random_state=self.random_state)
-        super().__init__(**kwargs)
 
 
 class CMclrnGb(CMclrnModel):
     def __init__(self, n_estimators: int, learning_rate: float, **kwargs):
+        super().__init__(**kwargs)
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
         self.prototype_model = GradientBoostingClassifier(
             n_estimators=self.n_estimators, learning_rate=self.learning_rate,
             random_state=self.random_state)
-        super().__init__(**kwargs)
 
 
 def cal_mclrn_train_and_predict(call_multiprocess: bool, models_mclrn: list[CMclrnModel], proc_qty: int = None,
@@ -347,11 +344,7 @@ class CMclrnBatch(object):
 
     @staticmethod
     def get_fix_id(instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> str:
-        return f"P-{instru_pair}-T{delay}-F{len(factors):02d}-W{trn_win:02d}"
-
-    @staticmethod
-    def get_model_id(sn: int) -> str:
-        return f"M{sn:04d}"
+        return f"{instru_pair.Id}-T{delay}-F{len(factors):02d}-W{trn_win:02d}"
 
 
 class CMclrnBatchRidge(CMclrnBatch):
@@ -361,37 +354,32 @@ class CMclrnBatchRidge(CMclrnBatch):
 
     def core(self, models_mclrn: list[CMclrnModel],
              instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]):
-        model_sn: int = len(models_mclrn)
         for alphas in self.ridge_alphas:
-            model_id = self.get_model_id(sn=model_sn)
-            desc = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Ridge-A{len(alphas)}"
+            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Ridge-A{len(alphas):02d}"
+            desc = model_id
             m = CMclrnRidge(
                 alphas=alphas, model_id=model_id, desc=desc,
                 instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
                 sig_method="continuous", trn_win=trn_win,
             )
             models_mclrn.append(m)
-            model_sn += 1
         return 0
 
 
 class CMclrnBatchLogistic(CMclrnBatch):
-    def __init__(self, cvs: list[int], **kwargs):
-        self.cvs = cvs
+    def __init__(self, logistic_cs: list[int], **kwargs):
+        self.logistic_cs = logistic_cs
         super().__init__(**kwargs)
 
     def core(self, models_mclrn: list[CMclrnModel],
              instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]):
-        model_sn: int = len(models_mclrn)
-        for cv in self.cvs:
-            model_id = self.get_model_id(sn=model_sn)
-            desc = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Logistic-CV{cv:02d}"
+        for cs in self.logistic_cs:
+            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Logistic-CS{cs:02d}"
+            desc = model_id
             m = CMclrnLogistic(
-                cv=cv,
-                model_id=model_id, desc=desc,
+                cs=cs, model_id=model_id, desc=desc,
                 instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
                 sig_method="binary", trn_win=trn_win,
             )
             models_mclrn.append(m)
-            model_sn += 1
         return 0
