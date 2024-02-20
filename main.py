@@ -226,6 +226,7 @@ if __name__ == "__main__":
 
         calendar = CCalendar(calendar_path)
         cal_mclrn_train_and_predict(
+            call_multiprocess=True,
             models_mclrn=models_mclrn, proc_qty=args.process,
             run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp,
             calendar=calendar, regroups_dir=regroups_dir,
@@ -265,4 +266,4 @@ if __name__ == "__main__":
     #         simulations_dir=simulations_dir_mclrn
     #     )
     else:
-        raise ValueError
+        raise ValueError("Not a right input for subparser")

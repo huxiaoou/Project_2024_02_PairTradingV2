@@ -101,7 +101,7 @@ class CMclrnModel(object):
 
     @staticmethod
     def _fillna(df: pd.DataFrame, aver: pd.Series) -> pd.DataFrame:
-        return df.fillna(aver)
+        return df.fillna(aver).fillna(0)
 
     @staticmethod
     def _get_rng(df_fill_nan: pd.DataFrame, alpha: float) -> np.ndarray:
@@ -130,7 +130,8 @@ class CMclrnModel(object):
         df_fill_inf = self._replace_inf(df_fill_nan, ub=ub, lb=lb)
 
         sd = self._cal_sd(rng, alpha=self.normalize_alpha)
-        df_norm = (df_fill_inf - aver) / sd
+        df_norm: pd.DataFrame = (df_fill_inf - aver) / sd
+        df_norm.fillna(value=0, inplace=True)
         return df_norm
 
     def _transform_y(self, y_srs: pd.Series) -> pd.Series:
@@ -185,7 +186,7 @@ class CMclrnModel(object):
 
     def train(self, bgn_date: str, stp_date: str, calendar: CCalendar, models_dir: str):
         iter_dates, (next_dates,) = self.get_iter_dates(bgn_date, stp_date, calendar, shifts=[1])
-        seq, description = list(zip(iter_dates, next_dates)), f"{SFY('Training  ')} for {self.model_id}"
+        seq, description = list(zip(iter_dates, next_dates)), f"{SFY('Training  ')} for {self.desc:.<60s}"
         for (this_date, next_date) in track(seq, description=description):
             if self.is_model_update_date(this_date, next_date):
                 train_df = self._get_train_df(end_date=this_date)
@@ -198,7 +199,8 @@ class CMclrnModel(object):
         iter_dates, (next_dates_1, next_dates_2) = self.get_iter_dates(bgn_date, stp_date, calendar, shifts=[1, 2])
         month_dates: list[str] = []
         sub_predictions: list[pd.DataFrame] = []
-        seq, description = list(zip(iter_dates, next_dates_1, next_dates_2)), f"{SFG('Prediction')} for {self.model_id}"
+        seq, description = (list(zip(iter_dates, next_dates_1, next_dates_2)),
+                            f"{SFG('Prediction')} for {self.desc:.<60s}")
         for (this_date, next_date_1, next_date_2) in track(seq, description):
             month_dates.append(this_date)
             if (self.is_2_days_to_next_month(this_date, next_date_1, next_date_2)
@@ -307,12 +309,17 @@ class CMclrnGb(CMclrnModel):
         super().__init__(**kwargs)
 
 
-def cal_mclrn_train_and_predict(models_mclrn: list[CMclrnModel], proc_qty: int = None, **kwargs):
-    pool = mp.Pool(processes=proc_qty) if proc_qty else mp.Pool()
-    for m in models_mclrn:
-        pool.apply_async(m.main, kwds=kwargs)
-    pool.close()
-    pool.join()
+def cal_mclrn_train_and_predict(call_multiprocess: bool, models_mclrn: list[CMclrnModel], proc_qty: int = None,
+                                **kwargs):
+    if call_multiprocess:
+        pool = mp.Pool(processes=proc_qty) if proc_qty else mp.Pool()
+        for m in models_mclrn:
+            pool.apply_async(m.main, kwds=kwargs)
+        pool.close()
+        pool.join()
+    else:
+        for m in models_mclrn:
+            m.main(**kwargs)
     return 0
 
 
@@ -340,7 +347,7 @@ class CMclrnBatch(object):
 
     @staticmethod
     def get_fix_id(instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> str:
-        return f"P-{instru_pair}-T{delay}-F{len(factors):02d}-W{trn_win}"
+        return f"P-{instru_pair}-T{delay}-F{len(factors):02d}-W{trn_win:02d}"
 
     @staticmethod
     def get_model_id(sn: int) -> str:

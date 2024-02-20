@@ -1,15 +1,16 @@
 from project_config import instruments_pairs, factors
+from cBasic import CInstruPair
 from cMclrn import (CMclrnModel, CMclrnBatchRidge, CMclrnBatchLogistic)
 from cEvaluations import get_top_factors_for_instruments_pairs
 from project_setup import evaluations_dir_quick
 
 # --- init
-models_mclrn: list[CMclrnModel] = []
 delays = [2]
 trn_wins = [3, 6, 12]
 top = 5
 ridge_alphas = [(0.01, 0.1, 1.0, 10.0, 100)]
 logistic_cvs = [3, 5, 10]
+models_mclrn: list[CMclrnModel] = []
 
 # --- load top factors
 top_factors = get_top_factors_for_instruments_pairs(top=top, evaluations_dir=evaluations_dir_quick)
