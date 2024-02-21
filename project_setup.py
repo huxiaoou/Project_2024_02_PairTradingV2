@@ -1,11 +1,18 @@
 from husfort.qutility import get_twin_dir
 import os
+import platform
 
-major_return_save_dir = r"E:\Deploy\Data\Futures\by_instrument"
-calendar_path = r"E:\Deploy\Data\Calendar\cne_calendar.csv"
-instru_factor_exposure_dir = r"E:\Deploy\Data\ForProjects\cta3\factors_exposure\raw"
+if platform.system() == "Windows":
+    major_return_save_dir = r"E:\Deploy\Data\Futures\by_instrument"
+    calendar_path = r"E:\Deploy\Data\Calendar\cne_calendar.csv"
+    instru_factor_exposure_dir = r"E:\Deploy\Data\ForProjects\cta3\factors_exposure\raw"
+    save_root_dir = r"E:\ProjectsData"
+else:
+    major_return_save_dir = "/home/huxo/Deploy/Data/Futures/by_instrument"
+    calendar_path = "/home/huxo/Deploy/Data/Calendar/cne_calendar.csv"
+    instru_factor_exposure_dir = "/home/huxo/Deploy/Data/ForProjects/cta3/factors_exposure/raw"
+    save_root_dir = "/home/huxo/Research/Data"
 
-save_root_dir = r"E:\ProjectsData"
 project_save_dir = get_twin_dir(save_root_dir, src=".")
 diff_returns_dir = os.path.join(project_save_dir, "diff_returns")
 factors_exposure_dir = os.path.join(project_save_dir, "factors_exposure")
