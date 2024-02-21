@@ -61,7 +61,8 @@ for _, v in config_factor.items():
 pairs_qty = len(instruments_pairs)
 factors_qty = len(factors)
 diff_ret_delays = [1, 2]
-cost_rate = 0e-4
+cost_rate_quick = 0e-4
+cost_rate_mclrn = 5e-4
 
 if __name__ == "__main__":
     print(f"quantity of pairs   = {pairs_qty}")

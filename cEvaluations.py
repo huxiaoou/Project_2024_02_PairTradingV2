@@ -1,16 +1,14 @@
 import os
-import datetime as dt
 import pandas as pd
 from itertools import product as ittl_prod
 from rich.progress import track
-from husfort.qutility import SFG
 from husfort.qevaluation import CNAV
 from husfort.qplot import CPlotLines
 from cBasic import CInstruPair
 from cSimulations import CLibSimu
 
 
-def cal_evaluations(simu_id: str, bgn_date: str, stp_date: str, simulations_dir: dir) -> dict:
+def __cal_evaluations(simu_id: str, bgn_date: str, stp_date: str, simulations_dir: dir) -> dict:
     lib_simu_reader = CLibSimu(simu_id=simu_id, lib_save_dir=simulations_dir).get_lib_reader()
     net_ret_df = lib_simu_reader.read_by_conditions(conditions=[
         ("trade_date", ">=", bgn_date),
@@ -28,7 +26,7 @@ def cal_evaluations_quick(instruments_pairs: list[CInstruPair], diff_ret_delays:
     for (instru_pair, delay, factor) in track(list(ittl_prod(instruments_pairs, diff_ret_delays, factors)),
                                               description="Evaluation"):
         simu_id = f"{instru_pair.Id}.{factor}.T{delay}"
-        d = cal_evaluations(simu_id=simu_id, **kwargs)
+        d = __cal_evaluations(simu_id=simu_id, **kwargs)
         d.update({
             "instru_pair": instru_pair.Id,
             "factor": factor,
@@ -87,19 +85,28 @@ def plot_instru_simu_quick(instruments_pairs: list[CInstruPair], diff_ret_delays
         __plot_instru_simu_quick(instru_pair, delay, factors=factors, **kwargs)
     return 0
 
-# def cal_evaluations_mclrn(headers_mclrn: list[tuple[str, str]], evaluations_dir: str, **kwargs):
-#     eval_results = []
-#     for ml_model_id, desc in headers_mclrn:
-#         d = cal_evaluations(simu_id=ml_model_id, **kwargs)
-#         d.update({"model_id": ml_model_id, "desc": desc})
-#         eval_results.append(d)
-#     eval_results_df = pd.DataFrame(eval_results)
-#     eval_results_file = "eval.mclrn.csv"
-#     eval_results_path = os.path.join(evaluations_dir, eval_results_file)
-#     eval_results_df.to_csv(eval_results_path, index=False, float_format="%.8f")
-#     return 0
-#
-#
+
+def cal_evaluations_mclrn(headers_mclrn: list[tuple[str, str]], evaluations_dir: str, **kwargs):
+    eval_results = []
+    for ml_model_id, desc in track(headers_mclrn, description="Evaluation for Mclrn"):
+        instru_pair, delay, facs, win, mclrn, subargs = desc.split("-")
+        d = __cal_evaluations(simu_id=ml_model_id, **kwargs)
+        d.update({
+            "modelId": ml_model_id,
+            "instruPair": instru_pair,
+            "delay": delay,
+            "facs": facs,
+            "win": win,
+            "mclrn": mclrn,
+            "subArgs": subargs,
+        })
+        eval_results.append(d)
+    eval_results_df = pd.DataFrame(eval_results)
+    eval_results_file = "eval.mclrn.csv"
+    eval_results_path = os.path.join(evaluations_dir, eval_results_file)
+    eval_results_df.to_csv(eval_results_path, index=False, float_format="%.8f")
+    return 0
+
 # def plot_simu_mclrn(headers_mclrn: list[tuple[str, str]],
 #                     bgn_date: str, stp_date: str, simulations_dir: str, plot_save_dir: str):
 #     nav_data = {}

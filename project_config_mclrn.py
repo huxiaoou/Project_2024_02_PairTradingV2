@@ -25,7 +25,6 @@ batch_generator.append_batch(models_mclrn=models_mclrn)
 batch_generator = CMclrnBatchLogistic(
     logistic_cs=logistic_cs,
     instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins, all_factors=factors, top_factors=top_factors)
-# instruments_pairs=[CInstruPair("A.DCE", "Y.DCE")], delays=delays, trn_wins=[12], all_factors=factors, top_factors=top_factors)
 batch_generator.append_batch(models_mclrn=models_mclrn)
 
 # models_mclrn: list[CMclrnModel] = [

@@ -54,16 +54,17 @@ def parse_project_args():
     parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
     parser_sub.add_argument("--process", type=int, default=None, help="number of process")
 
-    # # simulation
-    # parser_sub = parsers_sub.add_parser(name="simu-mclrn", help="simulation for machine learning")
-    # parser_sub.add_argument("--mode", type=str, help="overwrite or append", choices=("o", "a"), required=True)
-    # parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
-    # parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
-    #
-    # # evaluation
-    # parser_sub = parsers_sub.add_parser(name="eval-mclrn", help="evaluation for machine learning")
-    # parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
-    # parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
+    # simulation
+    parser_sub = parsers_sub.add_parser(name="simu-mclrn", help="simulation for machine learning")
+    parser_sub.add_argument("--mode", type=str, help="overwrite or append", choices=("o", "a"), required=True)
+    parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--process", type=int, default=None, help="number of process")
+
+    # evaluation
+    parser_sub = parsers_sub.add_parser(name="eval-mclrn", help="evaluation for machine learning")
+    parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
 
     return parser_main.parse_args()
 
@@ -190,14 +191,14 @@ if __name__ == "__main__":
         )
     elif args.switch == "simu-quick":
         from project_setup import regroups_dir, simulations_dir_quick
-        from project_config import cost_rate, instruments_pairs, factors, diff_ret_delays
+        from project_config import cost_rate_quick, instruments_pairs, factors, diff_ret_delays
         from cSimulations import cal_simulations_instruments_pairs
 
         cal_simulations_instruments_pairs(
             proc_qty=args.process,
             instruments_pairs=instruments_pairs, diff_ret_delays=diff_ret_delays,
             run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, factors=factors,
-            cost_rate=cost_rate, regroups_dir=regroups_dir, simulations_dir=simulations_dir_quick
+            cost_rate=cost_rate_quick, regroups_dir=regroups_dir, simulations_dir=simulations_dir_quick
         )
     elif args.switch == "eval-quick":
         from project_setup import simulations_dir_quick, evaluations_dir_quick
@@ -226,44 +227,44 @@ if __name__ == "__main__":
 
         calendar = CCalendar(calendar_path)
         cal_mclrn_train_and_predict(
-            call_multiprocess=False,
+            call_multiprocess=True,
             models_mclrn=models_mclrn, proc_qty=args.process,
             run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp,
             calendar=calendar, regroups_dir=regroups_dir,
             models_dir=models_dir, predictions_dir=predictions_dir
         )
-    # elif args.switch == "simu-mclrn":
-    #     from project_setup import predictions_dir, diff_returns_dir, simulations_dir_mclrn, calendar_path
-    #     from project_config import cost_rate
-    #     from project_config_mclrn import models_mclrn
-    #     from husfort.qcalendar import CCalendar
-    #     from simulations import CSimuMclrn
-    #
-    #     calendar = CCalendar(calendar_path)
-    #     for m in models_mclrn:
-    #         s = CSimuMclrn(model=m)
-    #         s.main(
-    #             run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp,
-    #             calendar=calendar, cost_rate=cost_rate,
-    #             predictions_dir=predictions_dir, diff_returns_dir=diff_returns_dir,
-    #             simulations_dir=simulations_dir_mclrn
-    #         )
-    # elif args.switch == "eval-mclrn":
-    #     from project_setup import simulations_dir_mclrn, evaluations_dir_mclrn
-    #     from project_config_mclrn import models_mclrn, headers_mclrn
-    #     from evaluations import cal_evaluations_mclrn, plot_simu_mclrn
-    #
-    #     cal_evaluations_mclrn(
-    #         headers_mclrn=headers_mclrn,
-    #         bgn_date=args.bgn, stp_date=args.stp,
-    #         evaluations_dir=evaluations_dir_mclrn,
-    #         simulations_dir=simulations_dir_mclrn
-    #     )
-    #     plot_simu_mclrn(
-    #         headers_mclrn=headers_mclrn,
-    #         bgn_date=args.bgn, stp_date=args.stp,
-    #         plot_save_dir=evaluations_dir_mclrn,
-    #         simulations_dir=simulations_dir_mclrn
-    #     )
+    elif args.switch == "simu-mclrn":
+        from project_setup import predictions_dir, diff_returns_dir, simulations_dir_mclrn, calendar_path
+        from project_config import cost_rate_mclrn
+        from project_config_mclrn import models_mclrn
+        from husfort.qcalendar import CCalendar
+        from cSimulations import cal_simulations_mclrn
+
+        calendar = CCalendar(calendar_path)
+        cal_simulations_mclrn(
+            call_multiprocess=True,
+            models_mclrn=models_mclrn, proc_qty=args.process,
+            run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp,
+            calendar=calendar, cost_rate=cost_rate_mclrn,
+            predictions_dir=predictions_dir, diff_returns_dir=diff_returns_dir,
+            simulations_dir=simulations_dir_mclrn
+        )
+    elif args.switch == "eval-mclrn":
+        from project_setup import simulations_dir_mclrn, evaluations_dir_mclrn
+        from project_config_mclrn import models_mclrn, headers_mclrn
+        from cEvaluations import cal_evaluations_mclrn  # , plot_simu_mclrn
+
+        cal_evaluations_mclrn(
+            headers_mclrn=headers_mclrn,
+            bgn_date=args.bgn, stp_date=args.stp,
+            evaluations_dir=evaluations_dir_mclrn,
+            simulations_dir=simulations_dir_mclrn
+        )
+        # plot_simu_mclrn(
+        #     headers_mclrn=headers_mclrn,
+        #     bgn_date=args.bgn, stp_date=args.stp,
+        #     plot_save_dir=evaluations_dir_mclrn,
+        #     simulations_dir=simulations_dir_mclrn
+        # )
     else:
         raise ValueError("Not a right input for subparser")

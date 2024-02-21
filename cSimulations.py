@@ -76,9 +76,9 @@ class CSimuQuick(object):
         return 0
 
 
-def cal_simulations(instru_pair: CInstruPair, delay: int,
-                    run_mode: str, bgn_date: str, stp_date: str, factors: list[str], cost_rate: float,
-                    regroups_dir: str, simulations_dir: dir):
+def cal_simulations_quick(instru_pair: CInstruPair, delay: int,
+                          run_mode: str, bgn_date: str, stp_date: str, factors: list[str], cost_rate: float,
+                          regroups_dir: str, simulations_dir: dir):
     lib_regroup_reader = CLibRegroups(instru_pair, delay, regroups_dir).get_lib_reader()
     df = lib_regroup_reader.read_by_conditions(conditions=[
         ("trade_date", ">=", bgn_date),
@@ -100,7 +100,7 @@ def cal_simulations_instruments_pairs(instruments_pairs: list[CInstruPair], diff
                                       **kwargs):
     pool = mp.Pool(processes=proc_qty) if proc_qty else mp.Pool()
     for (instru_pair, delay) in product(instruments_pairs, diff_ret_delays):
-        pool.apply_async(cal_simulations, args=(instru_pair, delay), kwds=kwargs)
+        pool.apply_async(cal_simulations_quick, args=(instru_pair, delay), kwds=kwargs)
     pool.close()
     pool.join()
     return 0
@@ -118,7 +118,6 @@ class CSimuMclrn(object):
         self.signals_aligned = pd.DataFrame()
         self.weight_diff = pd.DataFrame()
         self.rets = pd.DataFrame()
-        self.simu_pair_rets = pd.DataFrame()
         self.simu_rets = pd.DataFrame()
 
     def _get_dates(self, bgn_date: str, stp_date: str, calendar: CCalendar) -> tuple[list[str], list[str]]:
@@ -171,8 +170,7 @@ class CSimuMclrn(object):
         return 0
 
     def _cal_ret(self, cost_rate: float):
-        self.simu_pair_rets = self.signals_aligned * self.rets
-        raw_ret: pd.Series = self.simu_pair_rets.mean(axis=1)
+        raw_ret: pd.Series = self.signals_aligned["value"] * self.rets["diff_return"]
         dlt_wgt_abs_sum: pd.Series = self.weight_diff.abs().sum(axis=1)
         cost: pd.Series = dlt_wgt_abs_sum * cost_rate
         net_ret: pd.Series = raw_ret - cost
@@ -193,7 +191,7 @@ class CSimuMclrn(object):
         return 0
 
     def main(self, run_mode: str, bgn_date: str, stp_date: str, calendar: CCalendar, cost_rate: float,
-             predictions_dir: str, diff_returns_dir: str, simulations_dir: str):
+             predictions_dir: str, diff_returns_dir: str, simulations_dir: str, verbose: bool = False):
         sig_dates, ret_dates = self._get_dates(bgn_date, stp_date, calendar)
         self._load_signal(sig_bgn_date=sig_dates[0], sig_end_date=sig_dates[-1], predictions_dir=predictions_dir)
         self._align_signal(ret_dates, sig_dates)
@@ -202,6 +200,26 @@ class CSimuMclrn(object):
         self._check_shape()
         self._cal_ret(cost_rate)
         self._save(simulations_dir=simulations_dir, run_mode=run_mode)
-        print(f"{dt.datetime.now()} [INF] simulation for {SFG(self.model_id)}"
-              f" from {SFG(bgn_date)} to {SFG(stp_date)} are calculated")
+        if verbose:
+            print(f"\n{dt.datetime.now()} [INF] simulation for {SFG(self.model_id):.<48s}"
+                  f" from {SFG(bgn_date)} to {SFG(stp_date)} are calculated")
         return 0
+
+
+@qtimer
+def cal_simulations_mclrn(call_multiprocess: bool, models_mclrn: list[CMclrnModel], proc_qty: int = None, **kwargs):
+    if call_multiprocess:
+        pool = mp.Pool(processes=proc_qty) if proc_qty else mp.Pool()
+        jobs = []
+        for m in models_mclrn:
+            s = CSimuMclrn(model=m)
+            jobs.append(pool.apply_async(s.main, kwds=kwargs))
+        pool.close()
+        for job in track(jobs, description="Simulations for MclrnModels"):
+            job.get()
+        pool.join()
+    else:
+        for m in models_mclrn:
+            s = CSimuMclrn(model=m)
+            s.main(**kwargs)
+    return 0

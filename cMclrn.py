@@ -17,7 +17,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from husfort.qcalendar import CCalendar
-from husfort.qutility import check_and_mkdir, SFG, SFY
+from husfort.qutility import check_and_mkdir, SFG, SFY, qtimer
 from husfort.qsqlite import CQuickSqliteLib, CLib1Tab1, CTable
 from cBasic import CInstruPair
 from cRegroups import CLibRegroups
@@ -235,15 +235,15 @@ class CMclrnModel(object):
 
 
 class CMclrnRidge(CMclrnModel):
-    def __init__(self, alphas: tuple, fit_intercept: bool = False, **kwargs):
+    def __init__(self, alphas: tuple, fit_intercept: bool = True, **kwargs):
         super().__init__(**kwargs)
         self.alphas = alphas
         self.fit_intercept = fit_intercept
-        self.prototype_model = RidgeCV(alphas=self.alphas, fit_intercept=self.fit_intercept, cv=LeaveOneOut())
+        self.prototype_model = RidgeCV(alphas=self.alphas, fit_intercept=self.fit_intercept)
 
 
 class CMclrnLogistic(CMclrnModel):
-    def __init__(self, cs: int, fit_intercept: bool = False, **kwargs):
+    def __init__(self, cs: int, fit_intercept: bool = True, **kwargs):
         super().__init__(**kwargs)
         self.Cs = cs
         self.fit_intercept = fit_intercept
@@ -306,6 +306,7 @@ class CMclrnGb(CMclrnModel):
             random_state=self.random_state)
 
 
+@qtimer
 def cal_mclrn_train_and_predict(call_multiprocess: bool, models_mclrn: list[CMclrnModel], proc_qty: int = None,
                                 **kwargs):
     if call_multiprocess:
