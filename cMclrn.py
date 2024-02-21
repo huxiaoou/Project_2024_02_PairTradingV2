@@ -254,15 +254,15 @@ class CMclrnLogistic(CMclrnModel):
 
 
 class CMclrnMlp(CMclrnModel):
-    def __init__(self, hidden_layer_size: tuple[int], **kwargs):
+    def __init__(self, hidden_layer_sizes: tuple, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_layer_size = hidden_layer_size
+        self.hidden_layer_sizes = hidden_layer_sizes
         self.prototype_model = MLPClassifier(
-            hidden_layer_sizes=self.hidden_layer_size,
+            hidden_layer_sizes=self.hidden_layer_sizes,
             max_iter=self.max_iter, random_state=self.random_state)
 
 
-class CMclrnSvc(CMclrnModel):
+class CMclrnSvm(CMclrnModel):
     def __init__(self, c: float, degree: int, **kwargs):
         super().__init__(**kwargs)
         self.c = c
@@ -278,7 +278,7 @@ class CMclrnDt(CMclrnModel):
 
 
 class CMclrnKn(CMclrnModel):
-    def __init__(self, n_neighbors: int, weights: str = "distance", p: int = 1, **kwargs):
+    def __init__(self, n_neighbors: int, weights: str, p: int, **kwargs):
         super().__init__(**kwargs)
         self.n_neighbors = n_neighbors
         self.weights = weights
@@ -286,7 +286,7 @@ class CMclrnKn(CMclrnModel):
         self.prototype_model = KNeighborsClassifier(n_neighbors=self.n_neighbors, weights=self.weights, p=self.p)
 
 
-class CMclrnAdaboost(CMclrnModel):
+class CMclrnAb(CMclrnModel):
     def __init__(self, n_estimators: int, learning_rate: float, **kwargs):
         super().__init__(**kwargs)
         self.n_estimators = n_estimators
@@ -321,6 +321,9 @@ def cal_mclrn_train_and_predict(call_multiprocess: bool, models_mclrn: list[CMcl
     return 0
 
 
+# -------------
+# --- BATCH ---
+# -------------
 class CMclrnBatch(object):
     def __init__(self, instruments_pairs: list[CInstruPair], delays: list[int], trn_wins: list[int],
                  all_factors: list[str],
@@ -331,16 +334,15 @@ class CMclrnBatch(object):
         self.all_factors = all_factors
         self.top_factors = top_factors
 
-    def append_batch(self, models_mclrn: list[CMclrnModel]):
+    def gen_batch(self) -> list[CMclrnModel]:
+        res: list[CMclrnModel] = []
         for instru_pair, delay, trn_win in ittl.product(self.instruments_pairs, self.delays, self.trn_wins):
             sel_factors = self.top_factors[(instru_pair, delay)]
             for factors in [self.all_factors, sel_factors]:
-                self.core(models_mclrn=models_mclrn,
-                          instru_pair=instru_pair, delay=delay, factors=factors, trn_win=trn_win)
-        return 0
+                res += self.core(instru_pair=instru_pair, delay=delay, factors=factors, trn_win=trn_win)
+        return res
 
-    def core(self, models_mclrn: list[CMclrnModel],
-             instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]):
+    def core(self, instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> list[CMclrnModel]:
         pass
 
     @staticmethod
@@ -353,8 +355,8 @@ class CMclrnBatchRidge(CMclrnBatch):
         self.ridge_alphas = ridge_alphas
         super().__init__(**kwargs)
 
-    def core(self, models_mclrn: list[CMclrnModel],
-             instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]):
+    def core(self, instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> list[CMclrnModel]:
+        models_mclrn: list[CMclrnModel] = []
         for alphas in self.ridge_alphas:
             model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Ridge-A{len(alphas):02d}"
             desc = model_id
@@ -364,7 +366,7 @@ class CMclrnBatchRidge(CMclrnBatch):
                 sig_method="continuous", trn_win=trn_win,
             )
             models_mclrn.append(m)
-        return 0
+        return models_mclrn
 
 
 class CMclrnBatchLogistic(CMclrnBatch):
@@ -372,8 +374,8 @@ class CMclrnBatchLogistic(CMclrnBatch):
         self.logistic_cs = logistic_cs
         super().__init__(**kwargs)
 
-    def core(self, models_mclrn: list[CMclrnModel],
-             instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]):
+    def core(self, instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> list[CMclrnModel]:
+        models_mclrn: list[CMclrnModel] = []
         for cs in self.logistic_cs:
             model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Logistic-CS{cs:02d}"
             desc = model_id
@@ -383,4 +385,118 @@ class CMclrnBatchLogistic(CMclrnBatch):
                 sig_method="binary", trn_win=trn_win,
             )
             models_mclrn.append(m)
-        return 0
+        return models_mclrn
+
+
+class CMclrnBatchMlp(CMclrnBatch):
+    def __init__(self, mlp_args: dict[str, tuple], **kwargs):
+        self.mlp_args = mlp_args
+        super().__init__(**kwargs)
+
+    def core(self, instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> list[CMclrnModel]:
+        models_mclrn: list[CMclrnModel] = []
+        for code, hidden_layer_sizes in self.mlp_args.items():
+            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Mlp-{code}"
+            desc = model_id
+            m = CMclrnMlp(
+                hidden_layer_sizes=hidden_layer_sizes, model_id=model_id, desc=desc,
+                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
+                sig_method="binary", trn_win=trn_win,
+            )
+            models_mclrn.append(m)
+        return models_mclrn
+
+
+class CMclrnBatchSvm(CMclrnBatch):
+    def __init__(self, svm_args: dict[str, tuple], **kwargs):
+        self.svm_args = svm_args
+        super().__init__(**kwargs)
+
+    def core(self, instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> list[CMclrnModel]:
+        models_mclrn: list[CMclrnModel] = []
+        for code, (c, degree) in self.svm_args.items():
+            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Svm-{code}"
+            desc = model_id
+            m = CMclrnSvm(
+                c=c, degree=degree, model_id=model_id, desc=desc,
+                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
+                sig_method="binary", trn_win=trn_win,
+            )
+            models_mclrn.append(m)
+        return models_mclrn
+
+
+class CMclrnBatchDt(CMclrnBatch):
+    def __init__(self, dt_args: dict[str, int], **kwargs):
+        self.dt_args = dt_args
+        super().__init__(**kwargs)
+
+    def core(self, instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> list[CMclrnModel]:
+        models_mclrn: list[CMclrnModel] = []
+        for code, max_depth in self.dt_args.items():
+            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Dt-{code}"
+            desc = model_id
+            m = CMclrnDt(
+                max_depth=max_depth, model_id=model_id, desc=desc,
+                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
+                sig_method="binary", trn_win=trn_win,
+            )
+            models_mclrn.append(m)
+        return models_mclrn
+
+
+class CMclrnBatchKn(CMclrnBatch):
+    def __init__(self, kn_args: dict[str, int], **kwargs):
+        self.kn_args = kn_args
+        super().__init__(**kwargs)
+
+    def core(self, instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> list[CMclrnModel]:
+        models_mclrn: list[CMclrnModel] = []
+        for code, (n_neighbors, weights, p) in self.kn_args.items():
+            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Dt-{code}"
+            desc = model_id
+            m = CMclrnKn(
+                n_neighbors=n_neighbors, weights=weights, p=p, model_id=model_id, desc=desc,
+                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
+                sig_method="binary", trn_win=trn_win,
+            )
+            models_mclrn.append(m)
+        return models_mclrn
+
+
+class CMclrnBatchAb(CMclrnBatch):
+    def __init__(self, ab_args: dict[str, tuple[int, float]], **kwargs):
+        self.ab_args = ab_args
+        super().__init__(**kwargs)
+
+    def core(self, instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> list[CMclrnModel]:
+        models_mclrn: list[CMclrnModel] = []
+        for code, (n_estimators, learning_rate) in self.ab_args.items():
+            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Dt-{code}"
+            desc = model_id
+            m = CMclrnAb(
+                n_estimators=n_estimators, learning_rate=learning_rate, model_id=model_id, desc=desc,
+                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
+                sig_method="binary", trn_win=trn_win,
+            )
+            models_mclrn.append(m)
+        return models_mclrn
+
+
+class CMclrnBatchGb(CMclrnBatch):
+    def __init__(self, gb_args: dict[str, tuple[int, float]], **kwargs):
+        self.gb_args = gb_args
+        super().__init__(**kwargs)
+
+    def core(self, instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> list[CMclrnModel]:
+        models_mclrn: list[CMclrnModel] = []
+        for code, (n_estimators, learning_rate) in self.gb_args.items():
+            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Dt-{code}"
+            desc = model_id
+            m = CMclrnGb(
+                n_estimators=n_estimators, learning_rate=learning_rate, model_id=model_id, desc=desc,
+                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
+                sig_method="binary", trn_win=trn_win,
+            )
+            models_mclrn.append(m)
+        return models_mclrn
