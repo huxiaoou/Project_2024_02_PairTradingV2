@@ -453,7 +453,7 @@ class CMclrnBatchKn(CMclrnBatch):
     def core(self, instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> list[CMclrnModel]:
         models_mclrn: list[CMclrnModel] = []
         for code, (n_neighbors, weights, p) in self.kn_args.items():
-            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Dt-{code}"
+            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Kn-{code}"
             desc = model_id
             m = CMclrnKn(
                 n_neighbors=n_neighbors, weights=weights, p=p, model_id=model_id, desc=desc,
@@ -472,7 +472,7 @@ class CMclrnBatchAb(CMclrnBatch):
     def core(self, instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> list[CMclrnModel]:
         models_mclrn: list[CMclrnModel] = []
         for code, (n_estimators, learning_rate) in self.ab_args.items():
-            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Dt-{code}"
+            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Ab-{code}"
             desc = model_id
             m = CMclrnAb(
                 n_estimators=n_estimators, learning_rate=learning_rate, model_id=model_id, desc=desc,
@@ -491,7 +491,7 @@ class CMclrnBatchGb(CMclrnBatch):
     def core(self, instru_pair: CInstruPair, delay: int, trn_win: int, factors: list[str]) -> list[CMclrnModel]:
         models_mclrn: list[CMclrnModel] = []
         for code, (n_estimators, learning_rate) in self.gb_args.items():
-            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Dt-{code}"
+            model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Gb-{code}"
             desc = model_id
             m = CMclrnGb(
                 n_estimators=n_estimators, learning_rate=learning_rate, model_id=model_id, desc=desc,
