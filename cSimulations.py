@@ -78,7 +78,7 @@ class CSimuQuick(object):
 
 def cal_simulations_quick(instru_pair: CInstruPair, delay: int,
                           run_mode: str, bgn_date: str, stp_date: str, factors: list[str], cost_rate: float,
-                          regroups_dir: str, simulations_dir: dir):
+                          regroups_dir: str, simulations_dir: str):
     lib_regroup_reader = CLibRegroups(instru_pair, delay, regroups_dir).get_lib_reader()
     df = lib_regroup_reader.read_by_conditions(conditions=[
         ("trade_date", ">=", bgn_date),

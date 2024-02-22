@@ -24,34 +24,43 @@ class CLibDiffReturn(CQuickSqliteLib):
                         "diff_return": "REAL",
                     },
                 }
-            )
+            ),
         )
 
 
 def load_major_return(instru: str, bgn_date: str, stp_date: str, major_return_save_dir: str) -> pd.DataFrame:
     lib_reader = CLibMajorReturn(instrument=instru, lib_save_dir=major_return_save_dir).get_lib_reader()
-    return_df = lib_reader.read_by_conditions(
-        conditions=[
-            ("trade_date", ">=", bgn_date),
-            ("trade_date", "<", stp_date),
-        ], value_columns=["trade_date", "major_return"]
-    ).set_index("trade_date").rename(mapper={"major_return": instru}, axis=1)
+    return_df = (
+        lib_reader.read_by_conditions(
+            conditions=[
+                ("trade_date", ">=", bgn_date),
+                ("trade_date", "<", stp_date),
+            ],
+            value_columns=["trade_date", "major_return"],
+        )
+        .set_index("trade_date")
+        .rename(mapper={"major_return": instru}, axis=1)
+    )
     lib_reader.close()
     return return_df
 
 
 def cal_diff_returns(
-        instru_pair: CInstruPair,
-        major_return_save_dir: str,
-        run_mode: str, bgn_date: str, stp_date: str,
-        diff_returns_dir: str,
+    instru_pair: CInstruPair,
+    major_return_save_dir: str,
+    run_mode: str,
+    bgn_date: str,
+    stp_date: str,
+    diff_returns_dir: str,
 ):
     instru_a, instru_b = instru_pair.instru_a, instru_pair.instru_b
     return_df_a = load_major_return(instru_a, bgn_date, stp_date, major_return_save_dir)
     return_df_b = load_major_return(instru_b, bgn_date, stp_date, major_return_save_dir)
     if len(return_df_a) != len(return_df_b):
-        print(f"\n{dt.datetime.now()} [WRN] "
-              f"length of {instru_a} = {len(return_df_a)} != length of {instru_b} = {len(return_df_b)}")
+        print(
+            f"\n{dt.datetime.now()} [WRN] "
+            f"length of {instru_a} = {len(return_df_a)} != length of {instru_b} = {len(return_df_b)}"
+        )
 
     diff_return_df = pd.merge(left=return_df_a, right=return_df_b, left_index=True, right_index=True, how="outer")
     if len(return_df_a) != len(diff_return_df):

@@ -4,7 +4,8 @@ import argparse
 def parse_project_args():
     parser_main = argparse.ArgumentParser(description="Entry point of this project")
     parsers_sub = parser_main.add_subparsers(
-        title="sub argument:switch", dest="switch",
+        title="sub argument:switch",
+        dest="switch",
         description="use this argument to go to call different functions",
     )
 
@@ -16,10 +17,29 @@ def parse_project_args():
 
     # factor exposure
     parser_sub = parsers_sub.add_parser(name="exposure", help="Calculate factor exposure")
-    parser_sub.add_argument("--factor", type=str, help="which factor to calculate", choices=(
-        "lag", "sum", "ewm", "vol", "tnr",
-        "basisa", "ctp", "cvp", "csp", "rsbr", "rslr", "skew", "mtms", "tsa", "tsld"
-    ), required=True)
+    parser_sub.add_argument(
+        "--factor",
+        type=str,
+        help="which factor to calculate",
+        choices=(
+            "lag",
+            "sum",
+            "ewm",
+            "vol",
+            "tnr",
+            "basisa",
+            "ctp",
+            "cvp",
+            "csp",
+            "rsbr",
+            "rslr",
+            "skew",
+            "mtms",
+            "tsa",
+            "tsld",
+        ),
+        required=True,
+    )
     parser_sub.add_argument("--mode", type=str, help="overwrite or append", choices=("o", "a"), required=True)
     parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
     parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]")
@@ -79,12 +99,14 @@ if __name__ == "__main__":
         cal_diff_returns_pairs(
             instruments_pairs=instruments_pairs,
             major_return_save_dir=major_return_save_dir,
-            run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp,
-            diff_returns_dir=diff_returns_dir
+            run_mode=args.mode,
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            diff_returns_dir=diff_returns_dir,
         )
     elif args.switch == "exposure":
         from husfort.qcalendar import CCalendar
-        from project_setup import (factors_exposure_dir, diff_returns_dir, instru_factor_exposure_dir, calendar_path)
+        from project_setup import factors_exposure_dir, diff_returns_dir, instru_factor_exposure_dir, calendar_path
         from project_config import instruments_pairs, config_factor, CCfgFactorMA, CCfgFactorEWM, CCfgFactor
 
         calendar = CCalendar(calendar_path)
@@ -95,7 +117,9 @@ if __name__ == "__main__":
             if isinstance(factor_cfgs, CCfgFactor):
                 for lag, factor in zip(factor_cfgs.args, factor_cfgs.get_factors()):
                     factor_exposure = CFactorExposureLag(
-                        lag=lag, factor=factor, diff_returns_dir=diff_returns_dir,
+                        lag=lag,
+                        factor=factor,
+                        diff_returns_dir=diff_returns_dir,
                         factors_exposure_dir=factors_exposure_dir,
                         instruments_pairs=instruments_pairs,
                     )
@@ -108,7 +132,9 @@ if __name__ == "__main__":
             if isinstance(factor_cfgs, CCfgFactor):
                 for win, factor in zip(factor_cfgs.args, factor_cfgs.get_factors()):
                     factor_exposure = CFactorExposureSUM(
-                        win=win, factor=factor, diff_returns_dir=diff_returns_dir,
+                        win=win,
+                        factor=factor,
+                        diff_returns_dir=diff_returns_dir,
                         factors_exposure_dir=factors_exposure_dir,
                         instruments_pairs=instruments_pairs,
                     )
@@ -121,8 +147,11 @@ if __name__ == "__main__":
             if isinstance(factor_cfgs, CCfgFactorEWM):
                 for (fast, slow), factor in zip(factor_cfgs.args, factor_cfgs.get_factors()):
                     factor_exposure = CFactorExposureEWM(
-                        fast=fast, slow=slow, fix_base_date=factor_cfgs.fixed_bgn_date,
-                        factor=factor, diff_returns_dir=diff_returns_dir,
+                        fast=fast,
+                        slow=slow,
+                        fix_base_date=factor_cfgs.fixed_bgn_date,
+                        factor=factor,
+                        diff_returns_dir=diff_returns_dir,
                         factors_exposure_dir=factors_exposure_dir,
                         instruments_pairs=instruments_pairs,
                     )
@@ -135,7 +164,9 @@ if __name__ == "__main__":
             if isinstance(factor_cfgs, CCfgFactor):
                 for win, factor in zip(factor_cfgs.args, factor_cfgs.get_factors()):
                     factor_exposure = CFactorExposureVOL(
-                        win=win, factor=factor, diff_returns_dir=diff_returns_dir,
+                        win=win,
+                        factor=factor,
+                        diff_returns_dir=diff_returns_dir,
                         factors_exposure_dir=factors_exposure_dir,
                         instruments_pairs=instruments_pairs,
                     )
@@ -148,7 +179,9 @@ if __name__ == "__main__":
             if isinstance(factor_cfgs, CCfgFactor):
                 for win, factor in zip(factor_cfgs.args, factor_cfgs.get_factors()):
                     factor_exposure = CFactorExposureTNR(
-                        win=win, factor=factor, diff_returns_dir=diff_returns_dir,
+                        win=win,
+                        factor=factor,
+                        diff_returns_dir=diff_returns_dir,
                         factors_exposure_dir=factors_exposure_dir,
                         instruments_pairs=instruments_pairs,
                     )
@@ -161,9 +194,11 @@ if __name__ == "__main__":
             if isinstance(factor_cfgs, CCfgFactorMA):
                 for factor_exo, factor in zip(factor_cfgs.get_factors_raw(), factor_cfgs.get_factors()):
                     factor_exposure = CFactorExposureFromInstruExposureDiff(
-                        factor_exo=factor_exo, win_mov_ave=factor_cfgs.win_mov_ave,
+                        factor_exo=factor_exo,
+                        win_mov_ave=factor_cfgs.win_mov_ave,
                         instru_factor_exposure_dir=instru_factor_exposure_dir,
-                        factor=factor, factors_exposure_dir=factors_exposure_dir,
+                        factor=factor,
+                        factors_exposure_dir=factors_exposure_dir,
                         instruments_pairs=instruments_pairs,
                     )
                     factor_exposure.main(run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, calendar=calendar)
@@ -175,15 +210,18 @@ if __name__ == "__main__":
             raise ValueError
     elif args.switch == "regroups":
         from husfort.qcalendar import CCalendar
-        from project_setup import (factors_exposure_dir, diff_returns_dir, regroups_dir, calendar_path)
+        from project_setup import factors_exposure_dir, diff_returns_dir, regroups_dir, calendar_path
         from project_config import instruments_pairs, factors, diff_ret_delays
         from cRegroups import cal_regroups_pairs
 
         calendar = CCalendar(calendar_path)
         cal_regroups_pairs(
-            instruments_pairs=instruments_pairs, diff_ret_delays=diff_ret_delays,
+            instruments_pairs=instruments_pairs,
+            diff_ret_delays=diff_ret_delays,
             factors=factors,
-            run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp,
+            run_mode=args.mode,
+            bgn_date=args.bgn,
+            stp_date=args.stp,
             diff_returns_dir=diff_returns_dir,
             factors_exposure_dir=factors_exposure_dir,
             regroups_dir=regroups_dir,
@@ -196,9 +234,15 @@ if __name__ == "__main__":
 
         cal_simulations_instruments_pairs(
             proc_qty=args.process,
-            instruments_pairs=instruments_pairs, diff_ret_delays=diff_ret_delays,
-            run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp, factors=factors,
-            cost_rate=cost_rate_quick, regroups_dir=regroups_dir, simulations_dir=simulations_dir_quick
+            instruments_pairs=instruments_pairs,
+            diff_ret_delays=diff_ret_delays,
+            run_mode=args.mode,
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            factors=factors,
+            cost_rate=cost_rate_quick,
+            regroups_dir=regroups_dir,
+            simulations_dir=simulations_dir_quick,
         )
     elif args.switch == "eval-quick":
         from project_setup import simulations_dir_quick, evaluations_dir_quick
@@ -206,18 +250,23 @@ if __name__ == "__main__":
         from cEvaluations import cal_evaluations_quick, get_top_factors_for_instruments_pairs, plot_instru_simu_quick
 
         cal_evaluations_quick(
-            instruments_pairs=instruments_pairs, diff_ret_delays=diff_ret_delays, factors=factors,
-            bgn_date=args.bgn, stp_date=args.stp,
+            instruments_pairs=instruments_pairs,
+            diff_ret_delays=diff_ret_delays,
+            factors=factors,
+            bgn_date=args.bgn,
+            stp_date=args.stp,
             evaluations_dir=evaluations_dir_quick,
-            simulations_dir=simulations_dir_quick
+            simulations_dir=simulations_dir_quick,
         )
         top_factors = get_top_factors_for_instruments_pairs(top=args.top, evaluations_dir=evaluations_dir_quick)
         plot_instru_simu_quick(
-            instruments_pairs=instruments_pairs, diff_ret_delays=diff_ret_delays,
+            instruments_pairs=instruments_pairs,
+            diff_ret_delays=diff_ret_delays,
             top_factors=top_factors,
-            bgn_date=args.bgn, stp_date=args.stp,
+            bgn_date=args.bgn,
+            stp_date=args.stp,
             plot_save_dir=evaluations_dir_quick,
-            simulations_dir=simulations_dir_quick
+            simulations_dir=simulations_dir_quick,
         )
     elif args.switch == "mclrn":
         from project_setup import models_dir, predictions_dir, regroups_dir, calendar_path
@@ -228,10 +277,15 @@ if __name__ == "__main__":
         calendar = CCalendar(calendar_path)
         cal_mclrn_train_and_predict(
             call_multiprocess=True,
-            models_mclrn=models_mclrn, proc_qty=args.process,
-            run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp,
-            calendar=calendar, regroups_dir=regroups_dir,
-            models_dir=models_dir, predictions_dir=predictions_dir
+            models_mclrn=models_mclrn,
+            proc_qty=args.process,
+            run_mode=args.mode,
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            calendar=calendar,
+            regroups_dir=regroups_dir,
+            models_dir=models_dir,
+            predictions_dir=predictions_dir,
         )
     elif args.switch == "simu-mclrn":
         from project_setup import predictions_dir, diff_returns_dir, simulations_dir_mclrn, calendar_path
@@ -243,28 +297,35 @@ if __name__ == "__main__":
         calendar = CCalendar(calendar_path)
         cal_simulations_mclrn(
             call_multiprocess=True,
-            models_mclrn=models_mclrn, proc_qty=args.process,
-            run_mode=args.mode, bgn_date=args.bgn, stp_date=args.stp,
-            calendar=calendar, cost_rate=cost_rate_mclrn,
-            predictions_dir=predictions_dir, diff_returns_dir=diff_returns_dir,
-            simulations_dir=simulations_dir_mclrn
+            models_mclrn=models_mclrn,
+            proc_qty=args.process,
+            run_mode=args.mode,
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            calendar=calendar,
+            cost_rate=cost_rate_mclrn,
+            predictions_dir=predictions_dir,
+            diff_returns_dir=diff_returns_dir,
+            simulations_dir=simulations_dir_mclrn,
         )
     elif args.switch == "eval-mclrn":
         from project_setup import simulations_dir_mclrn, evaluations_dir_mclrn
-        from project_config_mclrn import models_mclrn, headers_mclrn
-        from cEvaluations import cal_evaluations_mclrn  # , plot_simu_mclrn
+        from project_config_mclrn import models_mclrn, headers_mclrn, model_prototypes
+        from cEvaluations import eval_mclrn_models, plot_simu_mclrn_with_top_sharpe
 
-        cal_evaluations_mclrn(
+        eval_mclrn_models(
             headers_mclrn=headers_mclrn,
-            bgn_date=args.bgn, stp_date=args.stp,
+            bgn_date=args.bgn,
+            stp_date=args.stp,
             evaluations_dir=evaluations_dir_mclrn,
-            simulations_dir=simulations_dir_mclrn
+            simulations_dir=simulations_dir_mclrn,
         )
-        # plot_simu_mclrn(
-        #     headers_mclrn=headers_mclrn,
-        #     bgn_date=args.bgn, stp_date=args.stp,
-        #     plot_save_dir=evaluations_dir_mclrn,
-        #     simulations_dir=simulations_dir_mclrn
-        # )
+        plot_simu_mclrn_with_top_sharpe(
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            simulations_dir=simulations_dir_mclrn,
+            evaluations_dir=evaluations_dir_mclrn,
+            model_prototypes=model_prototypes,
+        )
     else:
         raise ValueError("Not a right input for subparser")

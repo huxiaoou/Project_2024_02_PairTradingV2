@@ -38,16 +38,26 @@ class CLibPredictions(CQuickSqliteLib):
                     "primary_keys": {"trade_date": "TEXT"},
                     "value_columns": {"value": "REAL"},
                 }
-            )
+            ),
         )
 
 
 class CMclrnModel(object):
-    def __init__(self, model_id: str, desc: str,
-                 instru_pair: CInstruPair, delay: int, factors: list[str], y_lbl: str,
-                 sig_method: str,
-                 trn_win: int, days_per_month: int = 20, normalize_alpha: float = 0.05,
-                 random_state: int = 0, max_iter: int = 5000):
+    def __init__(
+        self,
+        model_id: str,
+        desc: str,
+        instru_pair: CInstruPair,
+        delay: int,
+        factors: list[str],
+        y_lbl: str,
+        sig_method: str,
+        trn_win: int,
+        days_per_month: int = 20,
+        normalize_alpha: float = 0.05,
+        random_state: int = 0,
+        max_iter: int = 5000,
+    ):
         self.model_id, self.desc = model_id, desc
         self.instru_pair = instru_pair
         self.delay = delay
@@ -74,8 +84,7 @@ class CMclrnModel(object):
         self.fitted_estimator = None
 
     @staticmethod
-    def get_iter_dates(bgn_date: str, stp_date: str,
-                       calendar: CCalendar, shifts: list[int] = None) -> tuple[list[str], tuple]:
+    def get_iter_dates(bgn_date: str, stp_date: str, calendar: CCalendar, shifts: list[int]) -> tuple[list[str], tuple]:
         iter_dates = calendar.get_iter_list(bgn_date, stp_date)
         shift_dates = tuple(calendar.shift_iter_dates(iter_dates, s) for s in shifts)
         return iter_dates, shift_dates
@@ -179,10 +188,13 @@ class CMclrnModel(object):
 
     def load_data(self, bgn_date: str, stp_date: str, regroups_dir: str):
         lib_reader = CLibRegroups(self.instru_pair, self.delay, regroups_dir).get_lib_reader()
-        df = lib_reader.read_by_conditions(conditions=[
-            ("trade_date", ">=", bgn_date),
-            ("trade_date", "<", stp_date),
-        ], value_columns=["trade_date", "factor", "value"])
+        df = lib_reader.read_by_conditions(
+            conditions=[
+                ("trade_date", ">=", bgn_date),
+                ("trade_date", "<", stp_date),
+            ],
+            value_columns=["trade_date", "factor", "value"],
+        )
         self.core_data = pd.pivot_table(data=df, index="trade_date", columns="factor", values="value")
         self.core_data = self.core_data[self.factors + [self.y_lbl]]
         return 0
@@ -190,7 +202,7 @@ class CMclrnModel(object):
     def train(self, bgn_date: str, stp_date: str, calendar: CCalendar, models_dir: str):
         iter_dates, (next_dates,) = self.get_iter_dates(bgn_date, stp_date, calendar, shifts=[1])
         seq, description = list(zip(iter_dates, next_dates)), f"{SFY('Training  ')} for {self.desc:.<60s}"
-        for (this_date, next_date) in track(seq, description=description):
+        for this_date, next_date in track(seq, description=description):
             if self.is_model_update_date(this_date, next_date):
                 train_df = self._get_train_df(end_date=this_date)
                 x, y = self._norm_and_trans(train_df)
@@ -202,12 +214,15 @@ class CMclrnModel(object):
         iter_dates, (next_dates_1, next_dates_2) = self.get_iter_dates(bgn_date, stp_date, calendar, shifts=[1, 2])
         month_dates: list[str] = []
         sub_predictions: list[pd.DataFrame] = []
-        seq, description = (list(zip(iter_dates, next_dates_1, next_dates_2)),
-                            f"{SFG('Prediction')} for {self.desc:.<60s}")
-        for (this_date, next_date_1, next_date_2) in track(seq, description):
+        seq, description = (
+            list(zip(iter_dates, next_dates_1, next_dates_2)),
+            f"{SFG('Prediction')} for {self.desc:.<60s}",
+        )
+        for this_date, next_date_1, next_date_2 in track(seq, description):
             month_dates.append(this_date)
-            if (self.is_2_days_to_next_month(this_date, next_date_1, next_date_2)
-                    or self.is_last_iter_date(this_date, iter_dates)):
+            if self.is_2_days_to_next_month(this_date, next_date_1, next_date_2) or self.is_last_iter_date(
+                this_date, iter_dates
+            ):
                 this_month = next_date_1[0:6]
                 prev_month = calendar.get_next_month(this_month, s=-1)
                 if self._load_model(month_id=prev_month, models_dir=models_dir):
@@ -225,8 +240,16 @@ class CMclrnModel(object):
         lib_pred_writer.close()
         return 0
 
-    def main(self, run_mode: str, bgn_date: str, stp_date: str, calendar: CCalendar,
-             regroups_dir: str, models_dir: str, predictions_dir: str):
+    def main(
+        self,
+        run_mode: str,
+        bgn_date: str,
+        stp_date: str,
+        calendar: CCalendar,
+        regroups_dir: str,
+        models_dir: str,
+        predictions_dir: str,
+    ):
         self.load_data(bgn_date, stp_date, regroups_dir)
         self.train(bgn_date, stp_date, calendar, models_dir)
         predictions = self.predict(bgn_date, stp_date, calendar, models_dir)
@@ -248,9 +271,12 @@ class CMclrnLogistic(CMclrnModel):
         self.Cs = cs
         self.fit_intercept = fit_intercept
         self.prototype_model = LogisticRegressionCV(
-            Cs=self.Cs, cv=LeaveOneOut(),
+            Cs=self.Cs,
+            cv=LeaveOneOut(),
             fit_intercept=self.fit_intercept,
-            max_iter=self.max_iter, random_state=self.random_state)
+            max_iter=self.max_iter,
+            random_state=self.random_state,
+        )
 
 
 class CMclrnMlp(CMclrnModel):
@@ -258,8 +284,8 @@ class CMclrnMlp(CMclrnModel):
         super().__init__(**kwargs)
         self.hidden_layer_sizes = hidden_layer_sizes
         self.prototype_model = MLPClassifier(
-            hidden_layer_sizes=self.hidden_layer_sizes,
-            max_iter=self.max_iter, random_state=self.random_state)
+            hidden_layer_sizes=self.hidden_layer_sizes, max_iter=self.max_iter, random_state=self.random_state
+        )
 
 
 class CMclrnSvm(CMclrnModel):
@@ -292,8 +318,8 @@ class CMclrnAb(CMclrnModel):
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
         self.prototype_model = AdaBoostClassifier(
-            n_estimators=self.n_estimators, learning_rate=self.learning_rate,
-            random_state=self.random_state)
+            n_estimators=self.n_estimators, learning_rate=self.learning_rate, random_state=self.random_state
+        )
 
 
 class CMclrnGb(CMclrnModel):
@@ -302,13 +328,14 @@ class CMclrnGb(CMclrnModel):
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
         self.prototype_model = GradientBoostingClassifier(
-            n_estimators=self.n_estimators, learning_rate=self.learning_rate,
-            random_state=self.random_state)
+            n_estimators=self.n_estimators, learning_rate=self.learning_rate, random_state=self.random_state
+        )
 
 
 @qtimer
-def cal_mclrn_train_and_predict(call_multiprocess: bool, models_mclrn: list[CMclrnModel], proc_qty: int = None,
-                                **kwargs):
+def cal_mclrn_train_and_predict(
+    call_multiprocess: bool, models_mclrn: list[CMclrnModel], proc_qty: int = None, **kwargs
+):
     if call_multiprocess:
         pool = mp.Pool(processes=proc_qty) if proc_qty else mp.Pool()
         for m in models_mclrn:
@@ -325,9 +352,14 @@ def cal_mclrn_train_and_predict(call_multiprocess: bool, models_mclrn: list[CMcl
 # --- BATCH ---
 # -------------
 class CMclrnBatch(object):
-    def __init__(self, instruments_pairs: list[CInstruPair], delays: list[int], trn_wins: list[int],
-                 all_factors: list[str],
-                 top_factors: dict[tuple[CInstruPair, int], list[str]]):
+    def __init__(
+        self,
+        instruments_pairs: list[CInstruPair],
+        delays: list[int],
+        trn_wins: list[int],
+        all_factors: list[str],
+        top_factors: dict[tuple[CInstruPair, int], list[str]],
+    ):
         self.instruments_pairs = instruments_pairs
         self.delays = delays
         self.trn_wins = trn_wins
@@ -361,9 +393,15 @@ class CMclrnBatchRidge(CMclrnBatch):
             model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Ridge-A{len(alphas):02d}"
             desc = model_id
             m = CMclrnRidge(
-                alphas=alphas, model_id=model_id, desc=desc,
-                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
-                sig_method="continuous", trn_win=trn_win,
+                alphas=alphas,
+                model_id=model_id,
+                desc=desc,
+                instru_pair=instru_pair,
+                delay=delay,
+                factors=factors,
+                y_lbl="diff_return",
+                sig_method="continuous",
+                trn_win=trn_win,
             )
             models_mclrn.append(m)
         return models_mclrn
@@ -380,9 +418,15 @@ class CMclrnBatchLogistic(CMclrnBatch):
             model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Logistic-CS{cs:02d}"
             desc = model_id
             m = CMclrnLogistic(
-                cs=cs, model_id=model_id, desc=desc,
-                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
-                sig_method="binary", trn_win=trn_win,
+                cs=cs,
+                model_id=model_id,
+                desc=desc,
+                instru_pair=instru_pair,
+                delay=delay,
+                factors=factors,
+                y_lbl="diff_return",
+                sig_method="binary",
+                trn_win=trn_win,
             )
             models_mclrn.append(m)
         return models_mclrn
@@ -399,9 +443,15 @@ class CMclrnBatchMlp(CMclrnBatch):
             model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Mlp-{code}"
             desc = model_id
             m = CMclrnMlp(
-                hidden_layer_sizes=hidden_layer_sizes, model_id=model_id, desc=desc,
-                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
-                sig_method="binary", trn_win=trn_win,
+                hidden_layer_sizes=hidden_layer_sizes,
+                model_id=model_id,
+                desc=desc,
+                instru_pair=instru_pair,
+                delay=delay,
+                factors=factors,
+                y_lbl="diff_return",
+                sig_method="binary",
+                trn_win=trn_win,
             )
             models_mclrn.append(m)
         return models_mclrn
@@ -418,9 +468,16 @@ class CMclrnBatchSvm(CMclrnBatch):
             model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Svm-{code}"
             desc = model_id
             m = CMclrnSvm(
-                c=c, degree=degree, model_id=model_id, desc=desc,
-                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
-                sig_method="binary", trn_win=trn_win,
+                c=c,
+                degree=degree,
+                model_id=model_id,
+                desc=desc,
+                instru_pair=instru_pair,
+                delay=delay,
+                factors=factors,
+                y_lbl="diff_return",
+                sig_method="binary",
+                trn_win=trn_win,
             )
             models_mclrn.append(m)
         return models_mclrn
@@ -437,9 +494,15 @@ class CMclrnBatchDt(CMclrnBatch):
             model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Dt-{code}"
             desc = model_id
             m = CMclrnDt(
-                max_depth=max_depth, model_id=model_id, desc=desc,
-                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
-                sig_method="binary", trn_win=trn_win,
+                max_depth=max_depth,
+                model_id=model_id,
+                desc=desc,
+                instru_pair=instru_pair,
+                delay=delay,
+                factors=factors,
+                y_lbl="diff_return",
+                sig_method="binary",
+                trn_win=trn_win,
             )
             models_mclrn.append(m)
         return models_mclrn
@@ -456,9 +519,17 @@ class CMclrnBatchKn(CMclrnBatch):
             model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Kn-{code}"
             desc = model_id
             m = CMclrnKn(
-                n_neighbors=n_neighbors, weights=weights, p=p, model_id=model_id, desc=desc,
-                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
-                sig_method="binary", trn_win=trn_win,
+                n_neighbors=n_neighbors,
+                weights=weights,
+                p=p,
+                model_id=model_id,
+                desc=desc,
+                instru_pair=instru_pair,
+                delay=delay,
+                factors=factors,
+                y_lbl="diff_return",
+                sig_method="binary",
+                trn_win=trn_win,
             )
             models_mclrn.append(m)
         return models_mclrn
@@ -475,9 +546,16 @@ class CMclrnBatchAb(CMclrnBatch):
             model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Ab-{code}"
             desc = model_id
             m = CMclrnAb(
-                n_estimators=n_estimators, learning_rate=learning_rate, model_id=model_id, desc=desc,
-                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
-                sig_method="binary", trn_win=trn_win,
+                n_estimators=n_estimators,
+                learning_rate=learning_rate,
+                model_id=model_id,
+                desc=desc,
+                instru_pair=instru_pair,
+                delay=delay,
+                factors=factors,
+                y_lbl="diff_return",
+                sig_method="binary",
+                trn_win=trn_win,
             )
             models_mclrn.append(m)
         return models_mclrn
@@ -494,9 +572,16 @@ class CMclrnBatchGb(CMclrnBatch):
             model_id = self.get_fix_id(instru_pair, delay, trn_win, factors) + f"-Gb-{code}"
             desc = model_id
             m = CMclrnGb(
-                n_estimators=n_estimators, learning_rate=learning_rate, model_id=model_id, desc=desc,
-                instru_pair=instru_pair, delay=delay, factors=factors, y_lbl="diff_return",
-                sig_method="binary", trn_win=trn_win,
+                n_estimators=n_estimators,
+                learning_rate=learning_rate,
+                model_id=model_id,
+                desc=desc,
+                instru_pair=instru_pair,
+                delay=delay,
+                factors=factors,
+                y_lbl="diff_return",
+                sig_method="binary",
+                trn_win=trn_win,
             )
             models_mclrn.append(m)
         return models_mclrn

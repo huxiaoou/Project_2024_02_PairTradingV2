@@ -1,6 +1,15 @@
 from project_config import instruments_pairs, factors
-from cMclrn import (CMclrnModel, CMclrnBatchRidge, CMclrnBatchLogistic, CMclrnBatchMlp,
-                    CMclrnBatchSvm, CMclrnBatchDt, CMclrnBatchKn, CMclrnBatchAb, CMclrnBatchGb)
+from cMclrn import (
+    CMclrnModel,
+    CMclrnBatchRidge,
+    CMclrnBatchLogistic,
+    CMclrnBatchMlp,
+    CMclrnBatchSvm,
+    CMclrnBatchDt,
+    CMclrnBatchKn,
+    CMclrnBatchAb,
+    CMclrnBatchGb,
+)
 from cEvaluations import get_top_factors_for_instruments_pairs
 from project_setup import evaluations_dir_quick
 
@@ -71,6 +80,7 @@ gb_args = {
     "M7": (100, 0.5),
     "M8": (200, 0.5),
 }
+model_prototypes = ["Ab", "Dt", "Gb", "Kn", "Logistic", "Mlp", "Ridge", "Svm"]
 models_mclrn: list[CMclrnModel] = []
 
 # --- load top factors
@@ -79,49 +89,89 @@ top_factors = get_top_factors_for_instruments_pairs(top=top, evaluations_dir=eva
 # --- add Ridge
 batch_generator = CMclrnBatchRidge(
     ridge_alphas=ridge_alphas,
-    instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins, all_factors=factors, top_factors=top_factors)
+    instruments_pairs=instruments_pairs,
+    delays=delays,
+    trn_wins=trn_wins,
+    all_factors=factors,
+    top_factors=top_factors,
+)
 models_mclrn += batch_generator.gen_batch()
 
 # --- add Logistic
 batch_generator = CMclrnBatchLogistic(
     logistic_cs=logistic_cs,
-    instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins, all_factors=factors, top_factors=top_factors)
+    instruments_pairs=instruments_pairs,
+    delays=delays,
+    trn_wins=trn_wins,
+    all_factors=factors,
+    top_factors=top_factors,
+)
 models_mclrn += batch_generator.gen_batch()
 
 # --- add MultiLayerPerception
 batch_generator = CMclrnBatchMlp(
     mlp_args=mlp_args,
-    instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins, all_factors=factors, top_factors=top_factors)
+    instruments_pairs=instruments_pairs,
+    delays=delays,
+    trn_wins=trn_wins,
+    all_factors=factors,
+    top_factors=top_factors,
+)
 models_mclrn += batch_generator.gen_batch()
 
 # --- add SupportVectorMachine
 batch_generator = CMclrnBatchSvm(
     svm_args=svm_args,
-    instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins, all_factors=factors, top_factors=top_factors)
+    instruments_pairs=instruments_pairs,
+    delays=delays,
+    trn_wins=trn_wins,
+    all_factors=factors,
+    top_factors=top_factors,
+)
 models_mclrn += batch_generator.gen_batch()
 
 # --- add DecisionTree
 batch_generator = CMclrnBatchDt(
     dt_args=dt_args,
-    instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins, all_factors=factors, top_factors=top_factors)
+    instruments_pairs=instruments_pairs,
+    delays=delays,
+    trn_wins=trn_wins,
+    all_factors=factors,
+    top_factors=top_factors,
+)
 models_mclrn += batch_generator.gen_batch()
 
 # --- add KNeighbor
 batch_generator = CMclrnBatchKn(
     kn_args=kn_args,
-    instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins, all_factors=factors, top_factors=top_factors)
+    instruments_pairs=instruments_pairs,
+    delays=delays,
+    trn_wins=trn_wins,
+    all_factors=factors,
+    top_factors=top_factors,
+)
 models_mclrn += batch_generator.gen_batch()
 
 # --- add Adaboost
 batch_generator = CMclrnBatchAb(
     ab_args=ab_args,
-    instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins, all_factors=factors, top_factors=top_factors)
+    instruments_pairs=instruments_pairs,
+    delays=delays,
+    trn_wins=trn_wins,
+    all_factors=factors,
+    top_factors=top_factors,
+)
 models_mclrn += batch_generator.gen_batch()
 
 # --- add GradientBoosting
 batch_generator = CMclrnBatchGb(
     gb_args=gb_args,
-    instruments_pairs=instruments_pairs, delays=delays, trn_wins=trn_wins, all_factors=factors, top_factors=top_factors)
+    instruments_pairs=instruments_pairs,
+    delays=delays,
+    trn_wins=trn_wins,
+    all_factors=factors,
+    top_factors=top_factors,
+)
 models_mclrn += batch_generator.gen_batch()
 
 headers_mclrn = [(m.model_id, m.desc) for m in models_mclrn]

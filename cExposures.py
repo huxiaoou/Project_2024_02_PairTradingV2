@@ -23,7 +23,7 @@ class CLibFactorExposure(CQuickSqliteLib):
                     "primary_keys": {"trade_date": "TEXT", "pair": "TEXT"},
                     "value_columns": {"value": "REAL"},
                 }
-            )
+            ),
         )
 
 
@@ -76,7 +76,8 @@ class _CFactorExposureEndogenous(CFactorExposure):
             conditions=[
                 ("trade_date", ">=", base_date),
                 ("trade_date", "<", stp_date),
-            ], value_columns=["trade_date", "diff_return"]
+            ],
+            value_columns=["trade_date", "diff_return"],
         ).set_index("trade_date")
         return pair_df
 
@@ -186,8 +187,9 @@ class CFactorExposureFromInstruExposureDiff(_CFactorExposureExogenous):
                     conditions=[
                         ("trade_date", ">=", base_date),
                         ("trade_date", "<", stp_date),
-                        ("instrument", "=", instru)
-                    ], value_columns=["trade_date", "value"]
+                        ("instrument", "=", instru),
+                    ],
+                    value_columns=["trade_date", "value"],
                 ).set_index("trade_date")
                 instru_factor_exposure[instru] = instru_df["value"]
             pair_df = pd.DataFrame(instru_factor_exposure)
