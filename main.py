@@ -86,6 +86,21 @@ def parse_project_args():
     parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
     parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
 
+    # ------------------------
+    # ------ portfolios ------
+    # ------------------------
+    # simulation
+    parser_sub = parsers_sub.add_parser(name="simu-portfolios", help="simulation for portfolios")
+    parser_sub.add_argument("--mode", type=str, help="overwrite or append", choices=("o", "a"), required=True)
+    parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--process", type=int, default=None, help="number of process")
+
+    # evaluation
+    parser_sub = parsers_sub.add_parser(name="eval-portfolios", help="evaluation for portfolios")
+    parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
+
     return parser_main.parse_args()
 
 
@@ -309,23 +324,75 @@ if __name__ == "__main__":
             simulations_dir=simulations_dir_mclrn,
         )
     elif args.switch == "eval-mclrn":
-        from project_setup import simulations_dir_mclrn, evaluations_dir_mclrn
+        from project_setup import (
+            simulations_dir_mclrn,
+            evaluations_dir_mclrn,
+            evaluations_dir_mclrn_by_instru_pair,
+            evaluations_dir_mclrn_by_mclrn_model,
+        )
         from project_config_mclrn import models_mclrn, headers_mclrn, model_prototypes
-        from cEvaluations import eval_mclrn_models, plot_simu_mclrn_with_top_sharpe
+        from cEvaluations import (
+            eval_mclrn_models,
+            plot_simu_mclrn_with_top_sharpe_by_instru_pair,
+            plot_simu_mclrn_with_top_sharpe_by_mclrn_model,
+        )
 
         eval_mclrn_models(
             headers_mclrn=headers_mclrn,
             bgn_date=args.bgn,
             stp_date=args.stp,
-            evaluations_dir=evaluations_dir_mclrn,
+            evaluations_dir_mclrn=evaluations_dir_mclrn,
             simulations_dir=simulations_dir_mclrn,
         )
-        plot_simu_mclrn_with_top_sharpe(
+        plot_simu_mclrn_with_top_sharpe_by_instru_pair(
             bgn_date=args.bgn,
             stp_date=args.stp,
             simulations_dir=simulations_dir_mclrn,
             evaluations_dir=evaluations_dir_mclrn,
             model_prototypes=model_prototypes,
+            plot_save_dir=evaluations_dir_mclrn_by_instru_pair,
+        )
+        plot_simu_mclrn_with_top_sharpe_by_mclrn_model(
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            simulations_dir=simulations_dir_mclrn,
+            evaluations_dir=evaluations_dir_mclrn,
+            model_prototypes=model_prototypes,
+            plot_save_dir=evaluations_dir_mclrn_by_mclrn_model,
+        )
+    elif args.switch == "simu-portfolios":
+        from project_setup import simulations_dir_mclrn, simulations_dir_portfolios
+        from project_config_portfolio import portfolios
+        from cSimulations import create_portfolios
+
+        create_portfolios(
+            portfolios=portfolios,
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            run_mode=args.mode,
+            simulations_dir=simulations_dir_mclrn,
+            portfolio_save_dir=simulations_dir_portfolios,
+        )
+    elif args.switch == "eval-portfolios":
+        from project_setup import simulations_dir_portfolios, evaluations_dir_portfolios
+        from project_config_portfolio import portfolios
+        from cEvaluations import eval_portfolios, plot_portfolios
+
+        eval_portfolios(
+            portfolios=portfolios,
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            evaluations_dir_portfolios=evaluations_dir_portfolios,
+            simulations_dir=simulations_dir_portfolios,
+            verbose=True,
+        )
+        plot_portfolios(
+            portfolios=portfolios,
+            save_id = "portfolios",
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            simulations_dir=simulations_dir_portfolios,
+            plot_save_dir=evaluations_dir_portfolios,
         )
     else:
         raise ValueError("Not a right input for subparser")

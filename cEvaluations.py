@@ -1,17 +1,21 @@
 import os
 import multiprocessing as mp
-from xml.parsers.expat import model
 import pandas as pd
 from itertools import product as ittl_prod
 from rich.progress import track
 from husfort.qevaluation import CNAV
 from husfort.qplot import CPlotLines
 from cBasic import CInstruPair
-from cSimulations import CLibSimu
+from cSimulations import CLibSimu, CLibPortfolio
 
 
-def __cal_evaluations(simu_id: str, bgn_date: str, stp_date: str, simulations_dir: str) -> dict:
-    lib_simu_reader = CLibSimu(simu_id=simu_id, lib_save_dir=simulations_dir).get_lib_reader()
+def __cal_evaluations(simu_id: str, bgn_date: str, stp_date: str, simulations_dir: str, lib_type: str) -> dict:
+    if lib_type.lower() == "simu":
+        lib_simu_reader = CLibSimu(simu_id=simu_id, lib_save_dir=simulations_dir).get_lib_reader()
+    elif lib_type.lower() == "portfolio":
+        lib_simu_reader = CLibPortfolio(portfolio_id=simu_id, lib_save_dir=simulations_dir).get_lib_reader()
+    else:
+        raise ValueError(f"argument lib_type={lib_type} is wrong, please check again")
     net_ret_df = lib_simu_reader.read_by_conditions(
         conditions=[
             ("trade_date", ">=", bgn_date),
@@ -33,7 +37,7 @@ def cal_evaluations_quick(
         list(ittl_prod(instruments_pairs, diff_ret_delays, factors)), description="Evaluation"
     ):
         simu_id = f"{instru_pair.Id}.{factor}.T{delay}"
-        d = __cal_evaluations(simu_id=simu_id, **kwargs)
+        d = __cal_evaluations(simu_id=simu_id, lib_type="simu", **kwargs)
         d.update(
             {
                 "instru_pair": instru_pair.Id,
@@ -114,7 +118,7 @@ def plot_instru_simu_quick(
 
 def __process_for_eval_mclrn_model(ml_model_id: str, desc: str, **kwargs) -> dict:
     instru_pair, delay, facs, win, mclrn, subargs = desc.split("-")
-    d = __cal_evaluations(simu_id=ml_model_id, **kwargs)
+    d = __cal_evaluations(simu_id=ml_model_id, lib_type="simu", **kwargs)
     d.update(
         {
             "modelId": ml_model_id,
@@ -129,7 +133,13 @@ def __process_for_eval_mclrn_model(ml_model_id: str, desc: str, **kwargs) -> dic
     return d
 
 
-def eval_mclrn_models(headers_mclrn: list[tuple[str, str]], evaluations_dir: str, **kwargs):
+def __process_for_eval_portfolio(portfolio_id: str, **kwargs) -> dict:
+    d = __cal_evaluations(simu_id=portfolio_id, lib_type="portfolio", **kwargs)
+    d.update({"portfolioId": portfolio_id})
+    return d
+
+
+def eval_mclrn_models(headers_mclrn: list[tuple[str, str]], evaluations_dir_mclrn: str, **kwargs):
     pool = mp.Pool()
     async_results = []
     for ml_model_id, desc in track(headers_mclrn, description="Evaluation for Mclrn"):
@@ -140,7 +150,7 @@ def eval_mclrn_models(headers_mclrn: list[tuple[str, str]], evaluations_dir: str
     eval_results = [job.get() for job in async_results]
     eval_results_df = pd.DataFrame(eval_results)
     eval_results_file = "eval.mclrn.csv"
-    eval_results_path = os.path.join(evaluations_dir, eval_results_file)
+    eval_results_path = os.path.join(evaluations_dir_mclrn, eval_results_file)
     eval_results_df.to_csv(eval_results_path, index=False, float_format="%.8f")
 
     # --- find best subargs for each Mclrn
@@ -153,8 +163,31 @@ def eval_mclrn_models(headers_mclrn: list[tuple[str, str]], evaluations_dir: str
     top_df = pd.DataFrame.from_dict(top_data, orient="index")
     top_df["instru_pair"], top_df["delay"], top_df["facs"], top_df["win"] = zip(*top_df.index)
     top_file = "eval.mclrn.top.csv"
-    top_path = os.path.join(evaluations_dir, top_file)
+    top_path = os.path.join(evaluations_dir_mclrn, top_file)
     top_df.to_csv(top_path, index=False)
+    return 0
+
+
+def eval_portfolios(
+    portfolios: dict[str, list[str]],
+    evaluations_dir_portfolios: str,
+    verbose: bool,
+    **kwargs,
+):
+    pool = mp.Pool()
+    async_results = []
+    for portfolio_id in track(portfolios, description="Evaluation for Portfolios"):
+        job = pool.apply_async(__process_for_eval_portfolio, args=(portfolio_id,), kwds=kwargs)
+        async_results.append(job)
+    pool.close()
+    pool.join()
+    eval_results = [job.get() for job in async_results]
+    eval_results_df = pd.DataFrame(eval_results)
+    eval_results_file = "eval.portfolios.csv"
+    eval_results_path = os.path.join(evaluations_dir_portfolios, eval_results_file)
+    eval_results_df.to_csv(eval_results_path, index=False, float_format="%.8f")
+    if verbose:
+        print(eval_results_df)
     return 0
 
 
@@ -165,10 +198,16 @@ def __process_for_plot_simu_mclrn(
     simulations_dir: str,
     plot_save_id: str,
     plot_save_dir: str,
+    lib_type: str,
 ):
     nav_data = {}
     for ml_model_id in mclrn_model_ids:
-        lib_simu_reader = CLibSimu(simu_id=ml_model_id, lib_save_dir=simulations_dir).get_lib_reader()
+        if lib_type.lower() == "simu":
+            lib_simu_reader = CLibSimu(simu_id=ml_model_id, lib_save_dir=simulations_dir).get_lib_reader()
+        elif lib_type.lower() == "portfolio":
+            lib_simu_reader = CLibPortfolio(portfolio_id=ml_model_id, lib_save_dir=simulations_dir).get_lib_reader()
+        else:
+            raise ValueError(f"argument lib_type={lib_type} is wrong, please check again")
         net_ret_df = lib_simu_reader.read_by_conditions(
             conditions=[
                 ("trade_date", ">=", bgn_date),
@@ -191,8 +230,13 @@ def __process_for_plot_simu_mclrn(
     return 0
 
 
-def plot_simu_mclrn_with_top_sharpe(
-    bgn_date: str, stp_date: str, simulations_dir: str, evaluations_dir: str, model_prototypes: list[str]
+def plot_simu_mclrn_with_top_sharpe_by_instru_pair(
+    bgn_date: str,
+    stp_date: str,
+    simulations_dir: str,
+    evaluations_dir: str,
+    model_prototypes: list[str],
+    plot_save_dir: str,
 ):
     top_file = "eval.mclrn.top.csv"
     top_path = os.path.join(evaluations_dir, top_file)
@@ -210,8 +254,52 @@ def plot_simu_mclrn_with_top_sharpe(
         mclrn_model_ids = [fix_id + f"-{k}-{getattr(r, k)}" for k in model_prototypes]
         pool.apply_async(
             __process_for_plot_simu_mclrn,
-            args=(mclrn_model_ids, bgn_date, stp_date, simulations_dir, fix_id, evaluations_dir),
+            args=(mclrn_model_ids, bgn_date, stp_date, simulations_dir, fix_id, plot_save_dir, "simu"),
         )
     pool.close()
     pool.join()
+    return 0
+
+
+def plot_simu_mclrn_with_top_sharpe_by_mclrn_model(
+    bgn_date: str,
+    stp_date: str,
+    simulations_dir: str,
+    evaluations_dir: str,
+    model_prototypes: list[str],
+    plot_save_dir: str,
+):
+    top_file = "eval.mclrn.top.csv"
+    top_path = os.path.join(evaluations_dir, top_file)
+    top_df = pd.read_csv(top_path)
+
+    pool = mp.Pool()
+    for (delay, facs, win), sub_df in top_df.groupby(by=["delay", "facs", "win"]):
+        for prototype in model_prototypes:
+            mclrn_model_ids = []
+            for instru_pair, subargs in zip(sub_df["instru_pair"], sub_df[prototype]):
+                fix_id = "-".join([instru_pair, delay, facs, win])
+                mclrn_model_ids.append(fix_id + f"-{prototype}-{subargs}")
+            save_id = "-".join([prototype, delay, facs, win])
+            pool.apply_async(
+                __process_for_plot_simu_mclrn,
+                args=(mclrn_model_ids, bgn_date, stp_date, simulations_dir, save_id, plot_save_dir, "simu"),
+            )
+    pool.close()
+    pool.join()
+    return 0
+
+
+def plot_portfolios(
+    portfolios: dict[str, list[str]],
+    save_id: str,
+    bgn_date: str,
+    stp_date: str,
+    simulations_dir: str,
+    plot_save_dir: str,
+):
+    mclrn_model_ids = list(portfolios)
+    __process_for_plot_simu_mclrn(
+        mclrn_model_ids, bgn_date, stp_date, simulations_dir, save_id, plot_save_dir, "portfolio"
+    )
     return 0

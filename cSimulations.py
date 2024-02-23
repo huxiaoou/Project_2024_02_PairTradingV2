@@ -34,7 +34,29 @@ class CLibSimu(CQuickSqliteLib):
                         "nav": "REAL",
                     },
                 }
-            )
+            ),
+        )
+
+
+class CLibPortfolio(CQuickSqliteLib):
+    def __init__(self, portfolio_id: str, lib_save_dir: str):
+        self.portfolio_id = portfolio_id
+        lib_name = f"portfolio.{self.portfolio_id}.db"
+        super().__init__(lib_name, lib_save_dir)
+
+    def get_lib_struct(self) -> CLib1Tab1:
+        return CLib1Tab1(
+            lib_name=self.lib_name,
+            table=CTable(
+                {
+                    "table_name": "portfolio",
+                    "primary_keys": {"trade_date": "TEXT"},
+                    "value_columns": {
+                        "netRet": "REAL",
+                        "nav": "REAL",
+                    },
+                }
+            ),
         )
 
 
@@ -76,14 +98,25 @@ class CSimuQuick(object):
         return 0
 
 
-def cal_simulations_quick(instru_pair: CInstruPair, delay: int,
-                          run_mode: str, bgn_date: str, stp_date: str, factors: list[str], cost_rate: float,
-                          regroups_dir: str, simulations_dir: str):
+def cal_simulations_quick(
+    instru_pair: CInstruPair,
+    delay: int,
+    run_mode: str,
+    bgn_date: str,
+    stp_date: str,
+    factors: list[str],
+    cost_rate: float,
+    regroups_dir: str,
+    simulations_dir: str,
+):
     lib_regroup_reader = CLibRegroups(instru_pair, delay, regroups_dir).get_lib_reader()
-    df = lib_regroup_reader.read_by_conditions(conditions=[
-        ("trade_date", ">=", bgn_date),
-        ("trade_date", "<", stp_date),
-    ], value_columns=["trade_date", "factor", "value"])
+    df = lib_regroup_reader.read_by_conditions(
+        conditions=[
+            ("trade_date", ">=", bgn_date),
+            ("trade_date", "<", stp_date),
+        ],
+        value_columns=["trade_date", "factor", "value"],
+    )
     pivot_df = pd.pivot_table(data=df, index="trade_date", columns="factor", values="value")
     for factor in track(factors, description=f"{instru_pair.Id:>16s}"):
         simu_df = pivot_df[[factor, "diff_return"]].copy()
@@ -95,11 +128,11 @@ def cal_simulations_quick(instru_pair: CInstruPair, delay: int,
 
 
 @qtimer
-def cal_simulations_instruments_pairs(instruments_pairs: list[CInstruPair], diff_ret_delays: list[int],
-                                      proc_qty: int = None,
-                                      **kwargs):
+def cal_simulations_instruments_pairs(
+    instruments_pairs: list[CInstruPair], diff_ret_delays: list[int], proc_qty: int = None, **kwargs
+):
     pool = mp.Pool(processes=proc_qty) if proc_qty else mp.Pool()
-    for (instru_pair, delay) in product(instruments_pairs, diff_ret_delays):
+    for instru_pair, delay in product(instruments_pairs, diff_ret_delays):
         pool.apply_async(cal_simulations_quick, args=(instru_pair, delay), kwds=kwargs)
     pool.close()
     pool.join()
@@ -127,10 +160,13 @@ class CSimuMclrn(object):
 
     def _load_signal(self, sig_bgn_date: str, sig_end_date: str, predictions_dir: str):
         lib_pred = CLibPredictions(self.model_id, predictions_dir).get_lib_reader()
-        pred_df = lib_pred.read_by_conditions(conditions=[
-            ("trade_date", ">=", sig_bgn_date),
-            ("trade_date", "<=", sig_end_date),
-        ], value_columns=["trade_date", "value"])
+        pred_df = lib_pred.read_by_conditions(
+            conditions=[
+                ("trade_date", ">=", sig_bgn_date),
+                ("trade_date", "<=", sig_end_date),
+            ],
+            value_columns=["trade_date", "value"],
+        )
         signals = pred_df.set_index("trade_date")
         if self.sig_method == "binary":
             self.signals = signals.applymap(lambda z: 2 * z - 1).fillna(0)
@@ -140,10 +176,7 @@ class CSimuMclrn(object):
 
     def _align_signal(self, ret_dates: list[str], sig_dates: list[str]):
         bridge = pd.DataFrame({"ret_date": ret_dates, "sig_date": sig_dates})
-        signals_aligned_df = pd.merge(
-            left=bridge, right=self.signals,
-            left_on="sig_date", right_index=True, how="left"
-        )
+        signals_aligned_df = pd.merge(left=bridge, right=self.signals, left_on="sig_date", right_index=True, how="left")
         self.signals_aligned = signals_aligned_df.set_index("ret_date").drop(axis=1, labels=["sig_date"]).fillna(0)
         return 0
 
@@ -153,19 +186,26 @@ class CSimuMclrn(object):
 
     def _load_ret(self, ret_bgn_date: str, ret_end_date: str, diff_returns_dir: str):
         lib_diff_return = CLibDiffReturn(self.instru_pair, diff_returns_dir).get_lib_reader()
-        self.rets = lib_diff_return.read_by_conditions(
-            conditions=[
-                ("trade_date", ">=", ret_bgn_date),
-                ("trade_date", "<=", ret_end_date),
-            ], value_columns=["trade_date", "diff_return"]
-        ).set_index("trade_date").fillna(0)
+        self.rets = (
+            lib_diff_return.read_by_conditions(
+                conditions=[
+                    ("trade_date", ">=", ret_bgn_date),
+                    ("trade_date", "<=", ret_end_date),
+                ],
+                value_columns=["trade_date", "diff_return"],
+            )
+            .set_index("trade_date")
+            .fillna(0)
+        )
         return 0
 
     def _check_shape(self):
         if self.signals_aligned.shape != self.rets.shape:
-            print(f"{dt.datetime.now()} [ERR] signals and returns are not aligned"
-                  f" signals shape = {self.signals_aligned.shape},"
-                  f" returns shape = {self.rets.shape}")
+            print(
+                f"{dt.datetime.now()} [ERR] signals and returns are not aligned"
+                f" signals shape = {self.signals_aligned.shape},"
+                f" returns shape = {self.rets.shape}"
+            )
             raise ValueError
         return 0
 
@@ -174,13 +214,15 @@ class CSimuMclrn(object):
         dlt_wgt_abs_sum: pd.Series = self.weight_diff.abs().sum(axis=1)
         cost: pd.Series = dlt_wgt_abs_sum * cost_rate
         net_ret: pd.Series = raw_ret - cost
-        self.simu_rets = pd.DataFrame({
-            "rawRet": raw_ret,
-            "dltWgt": dlt_wgt_abs_sum,
-            "cost": cost,
-            "netRet": net_ret,
-            "cumNetRet": (net_ret + 1).cumprod()
-        })
+        self.simu_rets = pd.DataFrame(
+            {
+                "rawRet": raw_ret,
+                "dltWgt": dlt_wgt_abs_sum,
+                "cost": cost,
+                "netRet": net_ret,
+                "cumNetRet": (net_ret + 1).cumprod(),
+            }
+        )
         return 0
 
     def _save(self, simulations_dir: str, run_mode: str):
@@ -190,8 +232,18 @@ class CSimuMclrn(object):
         lib_simu_writer.close()
         return 0
 
-    def main(self, run_mode: str, bgn_date: str, stp_date: str, calendar: CCalendar, cost_rate: float,
-             predictions_dir: str, diff_returns_dir: str, simulations_dir: str, verbose: bool = False):
+    def main(
+        self,
+        run_mode: str,
+        bgn_date: str,
+        stp_date: str,
+        calendar: CCalendar,
+        cost_rate: float,
+        predictions_dir: str,
+        diff_returns_dir: str,
+        simulations_dir: str,
+        verbose: bool = False,
+    ):
         sig_dates, ret_dates = self._get_dates(bgn_date, stp_date, calendar)
         self._load_signal(sig_bgn_date=sig_dates[0], sig_end_date=sig_dates[-1], predictions_dir=predictions_dir)
         self._align_signal(ret_dates, sig_dates)
@@ -201,8 +253,10 @@ class CSimuMclrn(object):
         self._cal_ret(cost_rate)
         self._save(simulations_dir=simulations_dir, run_mode=run_mode)
         if verbose:
-            print(f"\n{dt.datetime.now()} [INF] simulation for {SFG(self.model_id):.<48s}"
-                  f" from {SFG(bgn_date)} to {SFG(stp_date)} are calculated")
+            print(
+                f"\n{dt.datetime.now()} [INF] simulation for {SFG(self.model_id):.<48s}"
+                f" from {SFG(bgn_date)} to {SFG(stp_date)} are calculated"
+            )
         return 0
 
 
@@ -222,4 +276,68 @@ def cal_simulations_mclrn(call_multiprocess: bool, models_mclrn: list[CMclrnMode
         for m in models_mclrn:
             s = CSimuMclrn(model=m)
             s.main(**kwargs)
+    return 0
+
+
+class CPortfolio(object):
+    def __init__(
+        self, portfolio_id: str, underlying_assets_ids: list[str], simulations_dir: str, portfolio_save_dir: str
+    ):
+        self.portfolio_id = portfolio_id
+        self.underlying_assets_ids = underlying_assets_ids
+        underlying_net_ret_data = {}
+        for ml_model_id in self.underlying_assets_ids:
+            lib_simu_reader = CLibSimu(simu_id=ml_model_id, lib_save_dir=simulations_dir).get_lib_reader()
+            net_ret_df = lib_simu_reader.read(value_columns=["trade_date", "netRet"]).set_index("trade_date")
+            underlying_net_ret_data[ml_model_id] = net_ret_df["netRet"]
+        self.underlying_net_rets = pd.DataFrame(underlying_net_ret_data)
+        self.net_ret:pd.Series = pd.Series(dtype=float)
+        self.net_nav:pd.Series = pd.Series(dtype=float)
+        self.portfolio_save_dir = portfolio_save_dir
+
+    def cal_portfolio_ret_vanilla(self, bgn_date: str, stp_date: str):
+        filter_dates = (self.underlying_net_rets.index >= bgn_date) & ((self.underlying_net_rets.index < stp_date))
+        test_net_rets_df = self.underlying_net_rets.loc[filter_dates]
+        self.net_ret = test_net_rets_df.mean(axis=1)
+        self.net_nav = (self.net_ret + 1).cumprod()
+        return 0
+
+    @property
+    def nav(self) -> pd.DataFrame:
+        return pd.DataFrame({"net_ret": self.net_ret, "net_nav": self.net_nav})
+
+    def save_portfolio(self, run_mode: str):
+        lib_writer = CLibPortfolio(self.portfolio_id, self.portfolio_save_dir).get_lib_writer(run_mode=run_mode)
+        lib_writer.update(update_df=self.nav, using_index=True)
+        lib_writer.commit()
+        lib_writer.close()
+        return 0
+
+    def main(self, bgn_date: str, stp_date: str, run_mode:str):
+        self.cal_portfolio_ret_vanilla(bgn_date, stp_date)
+        self.save_portfolio(run_mode=run_mode)
+        print(f"[INF] {dt.datetime.now()} Portfolio of {SFG(self.portfolio_id)} are calculated")
+        return 0
+
+
+def create_portfolios(
+    portfolios: dict[str, list[str]],
+    bgn_date: str,
+    stp_date: str,
+    run_mode: str,
+    simulations_dir: str,
+    portfolio_save_dir: str,
+    proc_qty: int = None,
+):
+    pool = mp.Pool(processes=proc_qty) if proc_qty else mp.Pool()
+    for portfolio_id, underlying_asset_ids in portfolios.items():
+        p = CPortfolio(
+            portfolio_id=portfolio_id,
+            underlying_assets_ids=underlying_asset_ids,
+            simulations_dir=simulations_dir,
+            portfolio_save_dir=portfolio_save_dir,
+        )
+        pool.apply_async(p.main, args=(bgn_date, stp_date, run_mode))
+    pool.close()
+    pool.join()
     return 0
