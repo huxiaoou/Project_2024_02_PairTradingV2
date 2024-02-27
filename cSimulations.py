@@ -129,7 +129,7 @@ def cal_simulations_quick(
 
 @qtimer
 def cal_simulations_instruments_pairs(
-    instruments_pairs: list[CInstruPair], diff_ret_delays: list[int], proc_qty: int = None, **kwargs
+    instruments_pairs: list[CInstruPair], diff_ret_delays: list[int], proc_qty: int | None = None, **kwargs
 ):
     pool = mp.Pool(processes=proc_qty) if proc_qty else mp.Pool()
     for instru_pair, delay in product(instruments_pairs, diff_ret_delays):
@@ -167,7 +167,7 @@ class CSimuMclrn(object):
             ],
             value_columns=["trade_date", "value"],
         )
-        signals = pred_df.set_index("trade_date")
+        signals: pd.DataFrame = pred_df.set_index("trade_date")
         if self.sig_method == "binary":
             self.signals = signals.applymap(lambda z: 2 * z - 1).fillna(0)
         else:  # self.sig_method == "continuous":
@@ -261,7 +261,9 @@ class CSimuMclrn(object):
 
 
 @qtimer
-def cal_simulations_mclrn(call_multiprocess: bool, models_mclrn: list[CMclrnModel], proc_qty: int = None, **kwargs):
+def cal_simulations_mclrn(
+    call_multiprocess: bool, models_mclrn: list[CMclrnModel], proc_qty: int | None = None, **kwargs
+):
     if call_multiprocess:
         pool = mp.Pool(processes=proc_qty) if proc_qty else mp.Pool()
         jobs = []
@@ -291,8 +293,8 @@ class CPortfolio(object):
             net_ret_df = lib_simu_reader.read(value_columns=["trade_date", "netRet"]).set_index("trade_date")
             underlying_net_ret_data[ml_model_id] = net_ret_df["netRet"]
         self.underlying_net_rets = pd.DataFrame(underlying_net_ret_data)
-        self.net_ret:pd.Series = pd.Series(dtype=float)
-        self.net_nav:pd.Series = pd.Series(dtype=float)
+        self.net_ret: pd.Series = pd.Series(dtype=float)
+        self.net_nav: pd.Series = pd.Series(dtype=float)
         self.portfolio_save_dir = portfolio_save_dir
 
     def cal_portfolio_ret_vanilla(self, bgn_date: str, stp_date: str):
@@ -313,7 +315,7 @@ class CPortfolio(object):
         lib_writer.close()
         return 0
 
-    def main(self, bgn_date: str, stp_date: str, run_mode:str):
+    def main(self, bgn_date: str, stp_date: str, run_mode: str):
         self.cal_portfolio_ret_vanilla(bgn_date, stp_date)
         self.save_portfolio(run_mode=run_mode)
         print(f"[INF] {dt.datetime.now()} Portfolio of {SFG(self.portfolio_id)} are calculated")
@@ -327,7 +329,7 @@ def create_portfolios(
     run_mode: str,
     simulations_dir: str,
     portfolio_save_dir: str,
-    proc_qty: int = None,
+    proc_qty: int | None = None,
 ):
     pool = mp.Pool(processes=proc_qty) if proc_qty else mp.Pool()
     for portfolio_id, underlying_asset_ids in portfolios.items():

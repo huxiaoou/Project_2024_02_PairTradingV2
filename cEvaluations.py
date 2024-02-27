@@ -9,7 +9,7 @@ from cBasic import CInstruPair
 from cSimulations import CLibSimu, CLibPortfolio
 
 
-def __cal_evaluations(simu_id: str, bgn_date: str, stp_date: str, simulations_dir: str, lib_type: str) -> dict:
+def __cal_evaluations_db(simu_id: str, bgn_date: str, stp_date: str, simulations_dir: str, lib_type: str) -> dict:
     if lib_type.lower() == "simu":
         lib_simu_reader = CLibSimu(simu_id=simu_id, lib_save_dir=simulations_dir).get_lib_reader()
     elif lib_type.lower() == "portfolio":
@@ -29,6 +29,18 @@ def __cal_evaluations(simu_id: str, bgn_date: str, stp_date: str, simulations_di
     return d
 
 
+def __cal_evaluations_csv(simu_id: str, bgn_date: str, stp_date: str, simulations_dir: str, nav_file_tmpl: str) -> dict:
+    nav_file = nav_file_tmpl.format(simu_id)
+    nav_path = os.path.join(simulations_dir, simu_id, nav_file)
+    nav_df = pd.read_csv(nav_path, dtype={"trade_date": str}).set_index("trade_date")
+    filter_trade_dates = (nav_df.index >= bgn_date) & (nav_df.index < stp_date)
+    nav_df = nav_df[filter_trade_dates]
+    nav = CNAV(input_srs=nav_df["navps"], input_type="NAV")
+    nav.cal_all_indicators()
+    d = nav.to_dict(save_type="eng")
+    return d
+
+
 def cal_evaluations_quick(
     instruments_pairs: list[CInstruPair], diff_ret_delays: list[int], factors: list[str], evaluations_dir: str, **kwargs
 ):
@@ -37,7 +49,7 @@ def cal_evaluations_quick(
         list(ittl_prod(instruments_pairs, diff_ret_delays, factors)), description="Evaluation"
     ):
         simu_id = f"{instru_pair.Id}.{factor}.T{delay}"
-        d = __cal_evaluations(simu_id=simu_id, lib_type="simu", **kwargs)
+        d = __cal_evaluations_db(simu_id=simu_id, lib_type="simu", **kwargs)
         d.update(
             {
                 "instru_pair": instru_pair.Id,
@@ -118,7 +130,7 @@ def plot_instru_simu_quick(
 
 def __process_for_eval_mclrn_model(ml_model_id: str, desc: str, **kwargs) -> dict:
     instru_pair, delay, facs, win, mclrn, subargs = desc.split("-")
-    d = __cal_evaluations(simu_id=ml_model_id, lib_type="simu", **kwargs)
+    d = __cal_evaluations_db(simu_id=ml_model_id, lib_type="simu", **kwargs)
     d.update(
         {
             "modelId": ml_model_id,
@@ -134,7 +146,13 @@ def __process_for_eval_mclrn_model(ml_model_id: str, desc: str, **kwargs) -> dic
 
 
 def __process_for_eval_portfolio(portfolio_id: str, **kwargs) -> dict:
-    d = __cal_evaluations(simu_id=portfolio_id, lib_type="portfolio", **kwargs)
+    d = __cal_evaluations_db(simu_id=portfolio_id, lib_type="portfolio", **kwargs)
+    d.update({"portfolioId": portfolio_id})
+    return d
+
+
+def __process_for_eval_portfolio_complex(portfolio_id: str, **kwargs) -> dict:
+    d = __cal_evaluations_csv(simu_id=portfolio_id, nav_file_tmpl="{}.nav_daily.csv.gz", **kwargs)
     d.update({"portfolioId": portfolio_id})
     return d
 
@@ -172,18 +190,25 @@ def eval_portfolios(
     portfolios: dict[str, list[str]],
     evaluations_dir_portfolios: str,
     verbose: bool,
+    simu_save_type: str,
+    eval_save_id: str,
     **kwargs,
 ):
     pool = mp.Pool()
     async_results = []
     for portfolio_id in track(portfolios, description="Evaluation for Portfolios"):
-        job = pool.apply_async(__process_for_eval_portfolio, args=(portfolio_id,), kwds=kwargs)
+        if simu_save_type.lower() == "db":
+            job = pool.apply_async(__process_for_eval_portfolio, args=(portfolio_id,), kwds=kwargs)
+        elif simu_save_type.lower() == "csv":
+            job = pool.apply_async(__process_for_eval_portfolio_complex, args=(portfolio_id,), kwds=kwargs)
+        else:
+            raise ValueError(f"simu_save_type = {simu_save_type} is illegal")
         async_results.append(job)
     pool.close()
     pool.join()
     eval_results = [job.get() for job in async_results]
     eval_results_df = pd.DataFrame(eval_results)
-    eval_results_file = "eval.portfolios.csv"
+    eval_results_file = f"eval.portfolios.{eval_save_id}.csv"
     eval_results_path = os.path.join(evaluations_dir_portfolios, eval_results_file)
     eval_results_df.to_csv(eval_results_path, index=False, float_format="%.8f")
     if verbose:
@@ -192,7 +217,7 @@ def eval_portfolios(
 
 
 def __process_for_plot_simu_mclrn(
-    mclrn_model_ids: list[str],
+    simu_ids: list[str],
     bgn_date: str,
     stp_date: str,
     simulations_dir: str,
@@ -201,11 +226,11 @@ def __process_for_plot_simu_mclrn(
     lib_type: str,
 ):
     nav_data = {}
-    for ml_model_id in mclrn_model_ids:
+    for simu_id in simu_ids:
         if lib_type.lower() == "simu":
-            lib_simu_reader = CLibSimu(simu_id=ml_model_id, lib_save_dir=simulations_dir).get_lib_reader()
+            lib_simu_reader = CLibSimu(simu_id=simu_id, lib_save_dir=simulations_dir).get_lib_reader()
         elif lib_type.lower() == "portfolio":
-            lib_simu_reader = CLibPortfolio(portfolio_id=ml_model_id, lib_save_dir=simulations_dir).get_lib_reader()
+            lib_simu_reader = CLibPortfolio(portfolio_id=simu_id, lib_save_dir=simulations_dir).get_lib_reader()
         else:
             raise ValueError(f"argument lib_type={lib_type} is wrong, please check again")
         net_ret_df = lib_simu_reader.read_by_conditions(
@@ -215,13 +240,44 @@ def __process_for_plot_simu_mclrn(
             ],
             value_columns=["trade_date", "nav"],
         ).set_index("trade_date")
-        nav_data[ml_model_id] = net_ret_df["nav"]
+        nav_data[simu_id] = net_ret_df["nav"]
     nav_df = pd.DataFrame(nav_data)
     artist = CPlotLines(
         line_width=1,
         fig_save_dir=plot_save_dir,
         fig_save_type="pdf",
-        line_style=["-", "-."] * (int(len(mclrn_model_ids) / 2) + 1),
+        line_style=["-", "-."] * (int(len(simu_ids) / 2) + 1),
+        fig_name=f"simu_mclrn_{plot_save_id}",
+        plot_df=nav_df,
+        colormap="jet",
+    )
+    artist.plot()
+    return 0
+
+
+def __process_for_plot_simu_csv(
+    simu_ids: list[str],
+    bgn_date: str,
+    stp_date: str,
+    simulations_dir: str,
+    plot_save_id: str,
+    plot_save_dir: str,
+    nav_file_tmpl: str,
+):
+    nav_data = {}
+    for simu_id in simu_ids:
+        nav_file = nav_file_tmpl.format(simu_id)
+        nav_path = os.path.join(simulations_dir, simu_id, nav_file)
+        nav_df = pd.read_csv(nav_path, dtype={"trade_date": str}).set_index("trade_date")
+        filter_trade_dates = (nav_df.index >= bgn_date) & (nav_df.index < stp_date)
+        nav_df = nav_df[filter_trade_dates]
+        nav_data[simu_id] = nav_df["navps"]
+    nav_df = pd.DataFrame(nav_data)
+    artist = CPlotLines(
+        line_width=1,
+        fig_save_dir=plot_save_dir,
+        fig_save_type="pdf",
+        line_style=["-", "-."] * (int(len(simu_ids) / 2) + 1),
         fig_name=f"simu_mclrn_{plot_save_id}",
         plot_df=nav_df,
         colormap="jet",
@@ -290,7 +346,7 @@ def plot_simu_mclrn_with_top_sharpe_by_mclrn_model(
     return 0
 
 
-def plot_portfolios(
+def plot_portfolios_db(
     portfolios: dict[str, list[str]],
     save_id: str,
     bgn_date: str,
@@ -298,8 +354,21 @@ def plot_portfolios(
     simulations_dir: str,
     plot_save_dir: str,
 ):
-    mclrn_model_ids = list(portfolios)
-    __process_for_plot_simu_mclrn(
-        mclrn_model_ids, bgn_date, stp_date, simulations_dir, save_id, plot_save_dir, "portfolio"
+    simu_ids = list(portfolios)
+    __process_for_plot_simu_mclrn(simu_ids, bgn_date, stp_date, simulations_dir, save_id, plot_save_dir, "portfolio")
+    return 0
+
+
+def plot_portfolios_csv(
+    portfolios: dict[str, list[str]],
+    save_id: str,
+    bgn_date: str,
+    stp_date: str,
+    simulations_dir: str,
+    plot_save_dir: str,
+):
+    simu_ids = list(portfolios)
+    __process_for_plot_simu_csv(
+        simu_ids, bgn_date, stp_date, simulations_dir, save_id, plot_save_dir, "{}.nav_daily.csv.gz"
     )
     return 0

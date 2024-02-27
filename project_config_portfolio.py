@@ -23,3 +23,7 @@ portfolios: dict[str, list[str]] = {
     "P03": g0 + g1,
     "P04": g0 + g1 + g2,
 }
+
+WAN_YUAN = 1e4
+init_cash = 10000 * WAN_YUAN
+cost_rate = 5e-4

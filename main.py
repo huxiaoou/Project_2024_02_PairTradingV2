@@ -90,14 +90,32 @@ def parse_project_args():
     # ------ portfolios ------
     # ------------------------
     # simulation
-    parser_sub = parsers_sub.add_parser(name="simu-portfolios", help="simulation for portfolios")
+    parser_sub = parsers_sub.add_parser(name="simu-portfolios", help="simulations for portfolios")
     parser_sub.add_argument("--mode", type=str, help="overwrite or append", choices=("o", "a"), required=True)
     parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
     parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
     parser_sub.add_argument("--process", type=int, default=None, help="number of process")
 
     # evaluation
-    parser_sub = parsers_sub.add_parser(name="eval-portfolios", help="evaluation for portfolios")
+    parser_sub = parsers_sub.add_parser(name="eval-portfolios", help="evaluations for portfolios")
+    parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
+
+    # complex signals
+    parser_sub = parsers_sub.add_parser(name="sig-complex-portfolios", help="complex signals for portfolios")
+    parser_sub.add_argument("--mode", type=str, help="overwrite or append", choices=("o", "a"), required=True)
+    parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--process", type=int, default=None, help="number of process")
+
+    # complex simulations
+    parser_sub = parsers_sub.add_parser(name="simu-complex-portfolios", help="complex simulations for portfolios")
+    parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
+    parser_sub.add_argument("--process", type=int, default=None, help="number of process")
+
+    # evaluation
+    parser_sub = parsers_sub.add_parser(name="eval-complex-portfolios", help="complex evaluations for portfolios")
     parser_sub.add_argument("--bgn", type=str, help="begin date, format = [YYYYMMDD]", required=True)
     parser_sub.add_argument("--stp", type=str, help="stop  date, format = [YYYYMMDD]", required=True)
 
@@ -108,12 +126,12 @@ if __name__ == "__main__":
     args = parse_project_args()
     if args.switch == "diff":
         from project_config import instruments_pairs
-        from project_setup import diff_returns_dir, major_return_save_dir
+        from project_setup import diff_returns_dir, major_return_dir
         from cReturnsDiff import cal_diff_returns_pairs
 
         cal_diff_returns_pairs(
             instruments_pairs=instruments_pairs,
-            major_return_save_dir=major_return_save_dir,
+            major_return_save_dir=major_return_dir,
             run_mode=args.mode,
             bgn_date=args.bgn,
             stp_date=args.stp,
@@ -376,22 +394,94 @@ if __name__ == "__main__":
     elif args.switch == "eval-portfolios":
         from project_setup import simulations_dir_portfolios, evaluations_dir_portfolios
         from project_config_portfolio import portfolios
-        from cEvaluations import eval_portfolios, plot_portfolios
+        from cEvaluations import eval_portfolios, plot_portfolios_db
 
         eval_portfolios(
             portfolios=portfolios,
-            bgn_date=args.bgn,
-            stp_date=args.stp,
             evaluations_dir_portfolios=evaluations_dir_portfolios,
-            simulations_dir=simulations_dir_portfolios,
             verbose=True,
-        )
-        plot_portfolios(
-            portfolios=portfolios,
-            save_id = "portfolios",
+            simu_save_type="db",
+            eval_save_id="simple",
             bgn_date=args.bgn,
             stp_date=args.stp,
             simulations_dir=simulations_dir_portfolios,
+        )
+        plot_portfolios_db(
+            portfolios=portfolios,
+            save_id="portfolios.simple",
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            simulations_dir=simulations_dir_portfolios,
+            plot_save_dir=evaluations_dir_portfolios,
+        )
+    elif args.switch == "sig-complex-portfolios":
+        from project_setup import predictions_dir, signals_dir_portfolios
+        from cPortfolios import cal_portfolio_signals
+        from project_config_portfolio import portfolios
+
+        cal_portfolio_signals(
+            call_multiprocess=True,
+            proc_qty=args.process,
+            portfolios=portfolios,
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            run_mode=args.mode,
+            predictions_dir=predictions_dir,
+            signals_dir=signals_dir_portfolios,
+        )
+    elif args.switch == "simu-complex-portfolios":
+        from project_setup import (
+            calendar_path,
+            instru_info_path,
+            major_minor_dir,
+            market_data_dir,
+            available_universe_dir,
+        )
+        from project_setup import signals_dir_portfolios, simulations_complex_dir_portfolios
+        from project_config_portfolio import portfolios, cost_rate, init_cash
+        from husfort.qsimulation import cal_multiple_complex_simulations
+        from cPortfolios import get_universe
+
+        universe = get_universe(portfolios=portfolios)
+        cal_multiple_complex_simulations(
+            signal_ids=list(portfolios),
+            universe=universe,
+            init_cash=init_cash,
+            cost_rate=cost_rate,
+            simu_bgn_date=args.bgn,
+            simu_stp_date=args.stp,
+            signals_dir=signals_dir_portfolios,
+            simulations_save_dir=simulations_complex_dir_portfolios,
+            calendar_path=calendar_path,
+            instru_info_path=instru_info_path,
+            market_data_dir=market_data_dir,
+            major_minor_dir=major_minor_dir,
+            available_universe_dir=available_universe_dir,
+            call_multiprocess=True,
+            proc_qty=args.process,
+            save_trades_and_positions=True,
+        )
+    elif args.switch == "eval-complex-portfolios":
+        from project_setup import simulations_complex_dir_portfolios, evaluations_dir_portfolios
+        from project_config_portfolio import portfolios
+        from cEvaluations import eval_portfolios, plot_portfolios_csv
+
+        eval_portfolios(
+            portfolios=portfolios,
+            evaluations_dir_portfolios=evaluations_dir_portfolios,
+            verbose=True,
+            simu_save_type="csv",
+            eval_save_id="complex",
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            simulations_dir=simulations_complex_dir_portfolios,
+        )
+        plot_portfolios_csv(
+            portfolios=portfolios,
+            save_id="portfolios.complex",
+            bgn_date=args.bgn,
+            stp_date=args.stp,
+            simulations_dir=simulations_complex_dir_portfolios,
             plot_save_dir=evaluations_dir_portfolios,
         )
     else:
